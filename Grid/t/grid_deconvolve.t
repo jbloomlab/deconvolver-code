@@ -1,0 +1,74 @@
+#!/usr/local/bin/perl -w
+use strict;
+use Pod::Usage;
+use FindBin qw($Bin);
+use lib "$Bin/../../";
+use Grid::SGE;
+use Grid::Tools::Barcode::Deconvolver;
+use Test::More tests => 4;
+
+my $outdir = "/usr/local/scratch/naxelrod/out";
+my $errdir = "/usr/local/scratch/naxelrod/err";
+my $tmpdir = "/usr/local/scratch/naxelrod/tmp";
+#my $fasta = "$Bin/../t/data/s_1_1_sequence.fastq"; 	
+my $fasta = "$Bin/../t/data/FTF2AAH01.sff"; 	
+my $pattern = "$Bin/../t/data/barcodes.pat"; 		
+
+# Get our SGE object based on options
+my $grid = new Grid::SGE({
+			project 	=> 810001,
+			name		=> "gridDeconvolve",
+			tmpdir	=> $tmpdir,
+			errdir	=> $errdir,
+			outdir	=> $outdir,
+			verbose	=> 1,
+			poll_delay => 30,
+});
+
+# Get our Grid::Tools::Barcode::Deconvolver object
+# Test (1a): Using options stringified
+my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
+			grid		=> $grid,
+			pattern	=> $pattern,
+			infile	=> $fasta,
+			tmpdir	=> $tmpdir,
+			errdir	=> $errdir,
+			outdir	=> $outdir,
+			verbose	=> 1,
+			options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
+});
+
+my $num_assignments = $Deconvolver->run();
+
+# Test fuzznuc grid searches
+my $Fuzznuc = $Deconvolver->fuzznuc;
+
+# Test that all tasks in fuzznuc job array completed successfully
+my $num_tasks = $grid->num_tasks;
+my $Tasks = $grid->job_tasks;
+my ($num_success, $num_failed);
+foreach my $T (@$Tasks) {
+	if ($T->status eq "complete") {
+		$num_success++;
+	} else {
+		$num_failed++;
+	}
+}
+ok($num_tasks == $num_success, "All fuzznuc tasks are successfully completed");
+ok(!$num_failed, "No job failures");
+
+# Test that a "reasonable" number of assignments were made
+my $num_seqs = scalar keys %{ $Deconvolver->fasta_table };
+my $num_seqs_with_hits = $Deconvolver->num_seqs_with_hits;
+my $perc_seqs_with_hits = ($num_seqs) ? int(($num_seqs_with_hits/$num_seqs)*100) : 0;
+my $perc_assignments = ($num_seqs) ? int(($num_assignments/$num_seqs)*100) : 0;
+print join(", ", $num_seqs, $num_seqs_with_hits, $num_assignments, $perc_seqs_with_hits, $perc_assignments), "\n";
+cmp_ok($perc_seqs_with_hits, '>=', 25, "Test at least 25\% of sequences have barcode hits");
+cmp_ok($perc_assignments, '>=', 25, "Test at least 25\% of sequences are assigned to barcodes");
+
+# Report any job failures
+print $grid->tasks_report() if $num_failed;
+
+done_testing();
+
+
