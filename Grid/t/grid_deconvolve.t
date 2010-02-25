@@ -7,9 +7,14 @@ use Grid::SGE;
 use Grid::Tools::Barcode::Deconvolver;
 use Test::More tests => 4;
 
-my $outdir = "/usr/local/scratch/naxelrod/out";
-my $errdir = "/usr/local/scratch/naxelrod/err";
-my $tmpdir = "/usr/local/scratch/naxelrod/tmp";
+# Get the user
+my $user=`whoami`; chomp $user;
+$user ||= "deconvolve";
+
+# Set the input files and output directories
+my $outdir = "/usr/local/scratch/$user/out";
+my $errdir = "/usr/local/scratch/$user/err";
+my $tmpdir = "/usr/local/scratch/$user/tmp";
 #my $fasta = "$Bin/../t/data/s_1_1_sequence.fastq"; 	
 my $fasta = "$Bin/../t/data/FTF2AAH01.sff"; 	
 my $pattern = "$Bin/../t/data/barcodes.pat"; 		
@@ -22,7 +27,7 @@ my $grid = new Grid::SGE({
 			errdir	=> $errdir,
 			outdir	=> $outdir,
 			verbose	=> 1,
-			poll_delay => 30,
+			poll_delay => 60,
 });
 
 # Get our Grid::Tools::Barcode::Deconvolver object
@@ -38,7 +43,8 @@ my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
 			options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
 });
 
-my $num_assignments = $Deconvolver->run();
+# Run the grid deconvolution pipeline
+$Deconvolver->run();
 
 # Test fuzznuc grid searches
 my $Fuzznuc = $Deconvolver->fuzznuc;
@@ -60,11 +66,15 @@ ok(!$num_failed, "No job failures");
 # Test that a "reasonable" number of assignments were made
 my $num_seqs = scalar keys %{ $Deconvolver->fasta_table };
 my $num_seqs_with_hits = $Deconvolver->num_seqs_with_hits;
+my $num_assignments = $Deconvolver->num_assignments;
 my $perc_seqs_with_hits = ($num_seqs) ? int(($num_seqs_with_hits/$num_seqs)*100) : 0;
 my $perc_assignments = ($num_seqs) ? int(($num_assignments/$num_seqs)*100) : 0;
 print join(", ", $num_seqs, $num_seqs_with_hits, $num_assignments, $perc_seqs_with_hits, $perc_assignments), "\n";
 cmp_ok($perc_seqs_with_hits, '>=', 25, "Test at least 25\% of sequences have barcode hits");
 cmp_ok($perc_assignments, '>=', 25, "Test at least 25\% of sequences are assigned to barcodes");
+
+# 601967, 566509, 95, 94, 0
+# perc_assign = 95
 
 # Report any job failures
 print $grid->tasks_report() if $num_failed;

@@ -56,6 +56,7 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	verbose
 	guid
 	num_seqs_with_hits
+	num_assignments
 	logfilehandle
 ));
 
@@ -106,6 +107,8 @@ sub set_defaults {
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
+	$self->num_assignments(0);
+	$self->num_seqs_with_hits(0);
 	
 	# Log results to STDOUT unless a log filehandle is provided
 	$self->logfilehandle(*STDOUT) unless defined $self->logfilehandle;
@@ -294,10 +297,12 @@ sub run {
 		$iter = $self->fuzznuc->get_hits_iterator_by_files([ $output_file ]);
 	}
 	
+	# deconvolve if the fuzznuc searches completed successfully
+	$self->deconvolve($iter) if $is_success;
 	
 	# Returns the number of sequence assignments
-	my $num_assignments = ($is_success) ? $self->deconvolve($iter) : 0;
-	return $num_assignments;
+	return $self->num_assignments;
+	
 }
 
 sub cleanup_files {
@@ -658,7 +663,7 @@ sub make_assignment_table {
 	my $multibarcode_table;
 	
 	# Iterate through our hits, which we assume are sorted by sequence
-	my ($curr_id, @Hits, $num_seqs_with_hits);
+	my ($curr_id, @Hits, $num_seqs_with_hits, $num_assignments);
 	while (my $Hit = $Hit_Iterator->()) {
 		
 		my $seq_id = $Hit->seq_id;
@@ -702,6 +707,7 @@ sub make_assignment_table {
 		# Start a list of hits for this new sequence
 		} else {
 			$num_seqs_with_hits++;
+			$num_assignments++ unless defined $multibarcode_table->{$curr_id};
 			@Hits = ($Hit);
 			$curr_id = $seq_id;
 		}
@@ -713,8 +719,9 @@ sub make_assignment_table {
 		print STDERR "Sequences with multi barcode hits: $num_multibarcode_seqs\n";
 	}
 	
-	# Keep track of number of sequences with barcode hits
+	# Keep track of number of sequences with hits and assignments
 	$self->num_seqs_with_hits($num_seqs_with_hits);
+	$self->num_assignments($num_assignments);
 	
 	# Set our multibarcode table
 	$self->multibarcode_table($multibarcode_table);
@@ -801,7 +808,7 @@ sub write_barcode_fasta {
 			
 			# Include 454 key offset in writing the trim points
 			# Write trimpoints in residue coordinates (add 1 to start position)
-			print FH_TRIMPOINTS join("\t", $barcode_id, $seq_id, $clear_start + $KEY_LENGTH + 1, $clear_end + $KEY_LENGTH), "\n";
+			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $KEY_LENGTH + 1, $clear_end + $KEY_LENGTH), "\n";
 			next if $TRIM_POINTS_ONLY;
 			
 			# Update our fasta record with the "clear range" trimmed sequence
@@ -846,23 +853,22 @@ sub write_barcode_fasta {
 		# Output a trimmed sff file
 		if ($outformat eq "sff") {
 			
-			# Use our input sff file (-i $sff_file)
+			# Use our input sff file (-i $sff_file) and trim file (-t $trim_file)
 			my $sff_file = $self->sff_file; # $self->infile 
 			
-			# Write a trimmed sff file (-o $trim_file)
+			# Write a trimmed sff file (-o $trim_sff_file)
 			my $trim_sff_file = "$barcodedir/$barcode_id.sff";
 			
-			# We need to produce a list of sequence ids to trim (-i $seqid_file)
+			# Produce a list of sequence ids to trim (-i $seqid_file)
 			my $seqid_file = "$barcodedir/$barcode_id.ids";
-			my $sc_seqidfile = "cut -f 2 $trim_file > $seqid_file";
+			my $sc_seqidfile = "cut -f 1 $trim_file > $seqid_file";
 			my $status_code = system($sc_seqidfile);
 			print STDERR "Error: Failed system call to write seqid file with status code $status_code\n"
 				if $status_code;			
 			
 			# Write the trimmed sff files using our trim file and sff file (-t $barcode_fasta_file $sff_file)
-			my $sc_sff = "sfffile -o $trim_sff_file -i $seqid_file -t $barcode_fasta_file $sff_file";
-			print STDERR "Writing trimmed sff...\n$sc_sff\n";
-			
+			my $sc_sff = "sfffile -o $trim_sff_file -i $seqid_file -t $trim_file $sff_file";
+			print STDERR "Writing trimmed sff...\n$sc_sff\n" if $self->verbose;
 			$status_code = system($sc_sff);
 			print STDERR "Error: sfffile returns with status code $status_code while generating trimmed sff for barcode $barcode_id\n$sc_sff\n"
 				if $status_code;

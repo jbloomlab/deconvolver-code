@@ -192,7 +192,8 @@ my $error_mssg = $Deconvolver->validate_parameters();
 my $num_assignments = $Deconvolver->run();
 
 # Report any job failures
-print $grid->failed_tasks_report() if $grid->num_failed_tasks;
+print $grid->num_failed_tasks, "failed tasks\n";
+#print $grid->failed_tasks_report() if $grid->num_failed_tasks;
 
 
 ######################## SUB ROUTINES ############################

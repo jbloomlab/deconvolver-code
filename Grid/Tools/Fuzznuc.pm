@@ -29,7 +29,7 @@ my $NUM_SEQS 		= 100000; 	# number of sequences per fasta file for split
 my $OPTIONS = {
 	pmismatch		=> 2,
 	stdout		=> "true",
-	filter		=> undef,
+	filter		=> "",
 	complement	=> "Yes",
 	rformat		=> "excel"
 };
