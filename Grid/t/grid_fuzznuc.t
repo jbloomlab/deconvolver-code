@@ -25,7 +25,7 @@ my $grid = new Grid::SGE({
 			errdir	=> $errdir,
 			outdir	=> $outdir,
 			verbose	=> $verbose,
-			poll_delay => 10,
+			poll_delay => 60,
 });
 
 ################################################################################
@@ -119,7 +119,7 @@ my $grid_baddir = new Grid::SGE({
 });
 
 $Fuzznuc = new Grid::Tools::Fuzznuc({
-			tmpdir	=> "/path/to/nowhere/",
+			outdir	=> "/path/to/nowhere/",
 			fasta	=> $fasta,
 			options	=> "-pattern \"[CG](5)TG{A}N(1,5)C\" -pmismatch 2",
 });

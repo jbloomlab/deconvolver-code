@@ -51,7 +51,6 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	multibarcode_table
 	barcode_distr_table
 	hit_table
-	trim_reads 
 	trim_points_only 
 	verbose
 	guid
@@ -102,11 +101,11 @@ sub set_defaults {
 	$self->min_readlength($MIN_READ_LENGTH) unless defined $self->min_readlength;
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
 	$self->tmpdir($TMP_DIR) unless defined $self->tmpdir;
-	$self->trim_reads($TRIM_READS) unless defined $self->trim_reads;
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
 	$self->num_seqs_with_hits(0);
+	print STDERR "trim points only ", $self->trim_points_only, "\n";
 	
 	# Log results to STDOUT unless a log filehandle is provided
 	$self->logfilehandle(*STDOUT) unless defined $self->logfilehandle;
@@ -205,7 +204,6 @@ sub print_runtime_settings {
 			"#\t-min_readlength $$self{min_readlength}",
 			"#\t-clamplength $$self{clamplength}",
 			"#\t-keylength $$self{keylength}",
-			"#\t-trim_reads $$self{trim_reads}",
 			"#\t-trim_points_only $$self{trim_points_only}",
 			"#\t-tmpdir $$self{tmpdir}",
 			"#\t-outdir $$self{outdir}",
@@ -442,8 +440,12 @@ sub write_temp_fasta_files {
 		die "Error: Problem with writing clean fastq file from $infile\n" 
 				if system($sc_fastq);
 		
+		# Don't need quals file if we only want trim points
 		print STDERR "Converting fastq to fasta... $fasta_file\n" if $self->verbose;
-		my $num_seqs = FileIO::FastaUtils->write_fasta_from_fastq($fastq_file, $fasta_file, $quals_file);
+		my $num_seqs = ($self->trim_points_only) 
+			? FileIO::FastaUtils->write_fasta_from_fastq($fastq_file, $fasta_file)
+			: FileIO::FastaUtils->write_fasta_from_fastq($fastq_file, $fasta_file, $quals_file);
+		
 		die "Error: No sequences parsed from input fastq file $fastq_file\n" 
 				unless $num_seqs;
 	
@@ -463,11 +465,14 @@ sub write_temp_fasta_files {
 		die "Error: Problem with writing fasta from sff file $sff_file\n" 
 				if system($sc_fasta);
 		
-		# (3) convert to fasta qualities file
-		print STDERR "Writing fasta qualities from sff file\n" if $self->verbose;
-		my $sc_fasta_quals = "sffinfo -q $sff_file > $quals_file";
-		die "Error: Problem with writing fasta qualies from sff file $sff_file\n" 
-				if system($sc_fasta_quals);
+		# Qualities files are not required to define trim points
+		unless ($self->trim_points_only) {
+			# (3) convert to fasta qualities file
+			print STDERR "Writing fasta qualities from sff file\n" if $self->verbose;
+			my $sc_fasta_quals = "sffinfo -q $sff_file > $quals_file";
+			die "Error: Problem with writing fasta qualies from sff file $sff_file\n" 
+					if system($sc_fasta_quals);
+		}
 	}
 }
 
@@ -531,9 +536,10 @@ sub make_fasta_table {
 	FileIO::FastaUtils->parse_fasta_by_file($self->fasta_file, $self->fasta_table);
 	
 	# Read fasta quality values
-	print STDERR "Reading quals file $$self{quals_file}\n" if $self->verbose;
-	FileIO::FastaUtils->parse_quals_by_file($self->quals_file, $self->fasta_table);
-		#unless $TRIM_POINTS_ONLY;
+	unless ($self->trim_points_only) {
+		print STDERR "Reading quals file $$self{quals_file}\n" if $self->verbose;
+		FileIO::FastaUtils->parse_quals_by_file($self->quals_file, $self->fasta_table);
+	}
 	
 	return $self->fasta_table;
 }
@@ -773,7 +779,6 @@ sub write_barcode_fasta {
 		# <barcode id>_<barcode sequence>_<num allowed mismatches>_<blinded_id>.fna
 		my $Barcode = $barcode_table->{$barcode_id};
 		my $barcode_fasta_file = "$barcodedir/$barcode_id.fasta";
-		print STDERR "Writing barcode results $barcode_fasta_file\n";
 		
 		# Create a trim report file
 		my $trim_file = "$barcodedir/$barcode_id.trim";
@@ -781,7 +786,8 @@ sub write_barcode_fasta {
 		
 		# write fasta output directly, or use Bio::SeqIO for writing fastq output
 		my $seqio_fastq;
-		unless ($TRIM_POINTS_ONLY) {
+		unless ($self->trim_points_only) {
+			print STDERR "Writing barcode results $barcode_fasta_file\n";
 			if ($outformat eq "fastq") {
 				$seqio_fastq = new Bio::SeqIO( -format => "fastq", -file => ">$barcode_fasta_file" );
 			} else {
@@ -821,7 +827,7 @@ sub write_barcode_fasta {
 			# Include 454 key offset in writing the trim points
 			# Write trimpoints in residue coordinates (add 1 to start position)
 			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $KEY_LENGTH + 1, $clear_end + $KEY_LENGTH), "\n";
-			next if $TRIM_POINTS_ONLY;
+			next if $self->trim_points_only;
 			
 			# Update our fasta record with the "clear range" trimmed sequence
 			$F->seq(substr($seq, $clear_start, $clear_end-$clear_start));
@@ -863,7 +869,7 @@ sub write_barcode_fasta {
 		close FH_BARCODE_FILE;
 		
 		# Output a trimmed sff file
-		if ($outformat eq "sff") {
+		if ($outformat eq "sff" && !$self->trim_points_only) {
 			
 			# Use our input sff file (-i $sff_file) and trim file (-t $trim_file)
 			my $sff_file = $self->sff_file; # $self->infile 

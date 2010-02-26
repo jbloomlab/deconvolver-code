@@ -72,6 +72,7 @@ use Time::HiRes qw(gettimeofday);
 		--notify 0
 	     --verbose
 	  	--priority 1
+	  	--trim-points-only
 		--o /path/to/out
 		--e /path/to/err
 		--t /path/to/tmp
@@ -112,9 +113,6 @@ B<--output,-o>
 B<--mismatches,-m>
 	OPTIONAL.  Number of mismatches to allow in running fuzznuc searches.
 
-B<--trim,-t>
-	OPTIONAL.  Trim the barcode sequences off of each read.
-
 B<--readlength,-l>
 	OPTIONAL.  Minimal acceptable read length after barcode trimming is complete.
 
@@ -125,6 +123,11 @@ B<--keylength,-l>
 	OPTIONAL.  The trim points for 454 sequences typically need to be offset by
 			 the key length of 4bp.  This is used for defining the trim points
 			 file.  Default is 0.
+
+B<--trim-points-only>
+	OPTIONAL.  Boolean parameter to output only the trim points file for the 
+			 sequences for each barcode.
+	
 B<--help,-h>
 	Print this message
 
@@ -167,6 +170,7 @@ my $results = GetOptions( \%opts,
 					'outdir|o=s',
 					'errdir|e=s',
 					'notify!',
+					'trim_points_only!',
 					'verbose!',
 					'help|h',
 ) || &_pod;
