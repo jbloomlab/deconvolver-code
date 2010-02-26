@@ -56,7 +56,6 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	verbose
 	guid
 	num_seqs_with_hits
-	num_assignments
 	logfilehandle
 ));
 
@@ -107,7 +106,6 @@ sub set_defaults {
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
-	$self->num_assignments(0);
 	$self->num_seqs_with_hits(0);
 	
 	# Log results to STDOUT unless a log filehandle is provided
@@ -556,8 +554,8 @@ sub print_log_report {
 	my $num_barcodes = ($self->barcode_table) ? scalar keys %{ $self->barcode_table } : 0;
 	my $num_seqs_with_hits = $self->num_seqs_with_hits;
 	my $num_multicoded_seqs = ($multibarcode_table) ? scalar keys %{ $multibarcode_table } : 0;
-	my $perc_seqs_with_hits = ($num_seqs) ? sprintf("%.1f", (($num_seqs_with_hits/$num_seqs)*100)) : "0.0";
-	my $perc_multicoded_seqs = ($num_seqs) ? sprintf("%.1f", (($num_multicoded_seqs/$num_seqs)*100)) : "0.0";
+	my $perc_seqs_with_hits = ($num_seqs) ? sprintf("%.2f", (($num_seqs_with_hits/$num_seqs)*100)) : "0.0";
+	my $perc_multicoded_seqs = ($num_seqs) ? sprintf("%.2f", (($num_multicoded_seqs/$num_seqs)*100)) : "0.0";
 	
 	print $logfh join("\n",
 		"# Number of barcode entries: $num_barcodes",
@@ -663,7 +661,7 @@ sub make_assignment_table {
 	my $multibarcode_table;
 	
 	# Iterate through our hits, which we assume are sorted by sequence
-	my ($curr_id, @Hits, $num_seqs_with_hits, $num_assignments);
+	my ($curr_id, @Hits, $num_seqs_with_hits);
 	while (my $Hit = $Hit_Iterator->()) {
 		
 		my $seq_id = $Hit->seq_id;
@@ -707,7 +705,6 @@ sub make_assignment_table {
 		# Start a list of hits for this new sequence
 		} else {
 			$num_seqs_with_hits++;
-			$num_assignments++ unless defined $multibarcode_table->{$curr_id};
 			@Hits = ($Hit);
 			$curr_id = $seq_id;
 		}
@@ -721,13 +718,27 @@ sub make_assignment_table {
 	
 	# Keep track of number of sequences with hits and assignments
 	$self->num_seqs_with_hits($num_seqs_with_hits);
-	$self->num_assignments($num_assignments);
 	
 	# Set our multibarcode table
 	$self->multibarcode_table($multibarcode_table);
 	
 	# Set and return our assignments table
 	return $self->assignments_table($assignments_table);
+}
+
+=head2 num_assignments()
+	
+	Calculates the number of sequences assigned to barcodes
+	
+=cut
+sub num_assignments {
+	my $self = shift;
+	my $assignments_table = $self->assignments_table;
+	my $num_assignments;
+	foreach my $pattern (keys %{ $assignments_table }) {
+		$num_assignments += scalar keys %{ $assignments_table->{$pattern} };
+	}
+	return $num_assignments;
 }
 
 =head2 write_barcode_fasta()
