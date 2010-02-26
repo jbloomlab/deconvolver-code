@@ -29,7 +29,7 @@ my $NUM_SEQS 		= 100000; 	# number of sequences per fasta file for split
 my $OPTIONS = {
 	pmismatch		=> 2,
 	stdout		=> "true",
-	filter		=> "",
+	filter		=> "true",
 	complement	=> "Yes",
 	rformat		=> "excel"
 };
@@ -73,6 +73,10 @@ sub init {
 		$self->options($key, $OPTIONS->{$key})
 			unless defined $self->{options}{$key};
 	}
+	
+	# These are equired option settings
+	$self->options('rformat', 'excel');
+	$self->options('filter', 'true');
 }
 
 =head2 add_fasta()

@@ -235,6 +235,7 @@ sub set_fuzznuc {
 	
 	# Requires csv output
 	$self->options('rformat', 'excel');
+	$self->options('filter', 'true');
 	
 	# Create our Grid::Tools::Fuzznuc object 
 	# (uses the directory structure defined during set_defaults)
