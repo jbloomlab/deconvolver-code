@@ -77,6 +77,7 @@ sub init {
 	# These are equired option settings
 	$self->options('rformat', 'excel');
 	$self->options('filter', 'true');
+	$self->options('stdout', 'true');
 }
 
 =head2 add_fasta()
