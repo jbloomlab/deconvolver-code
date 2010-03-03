@@ -24,6 +24,8 @@ my $TMP_DIR 		= "$CWD/tmp"; 				# temp directory
 my $OUT_DIR 		= "$CWD/out";				# output directory
 my $MULTIBARCODE_FILE = "report_multibarcode.log";
 my $NUM_SEQS_PER_SEARCH = 50000; 				# Number of sequences per fuzznuc search (50k by default)
+my $CLEANUP 		= 1;						# Boolean value to determine whether we should
+										# delete temp files on completion.  True by default.
 
 ##############################################################
 
@@ -55,6 +57,7 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	verbose
 	guid
 	num_seqs_with_hits
+	cleanup
 	logfilehandle
 ));
 
@@ -105,7 +108,7 @@ sub set_defaults {
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
 	$self->num_seqs_with_hits(0);
-	print STDERR "trim points only ", $self->trim_points_only, "\n";
+	$self->cleanup($CLEANUP) unless defined $self->cleanup;
 	
 	# Log results to STDOUT unless a log filehandle is provided
 	$self->logfilehandle(*STDOUT) unless defined $self->logfilehandle;
@@ -358,7 +361,7 @@ sub deconvolve {
 	print $self->print_log_report;
 	
 	# Cleanup after grid jobs
-	$self->cleanup_files();
+	$self->cleanup_files() if $self->cleanup;
 	
 	# Returns number of sequence assignments
 	return scalar keys %$assignments_table;
@@ -673,6 +676,10 @@ sub make_assignment_table {
 		
 		my $seq_id = $Hit->seq_id;
 		
+		if ($seq_id eq "FTF2AAH01CN3VD") {
+			print join (" ", $Hit->pattern, $seq_id, $Hit->min, $Hit->max, $Hit->strand, $Hit->length), "\n";
+		}
+		
 		if ($curr_id) {
 			
 			# Build a list of hits for this sequence
@@ -696,10 +703,10 @@ sub make_assignment_table {
 						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(\@Hits);
 						if ($is_multicoded) {
 							$multibarcode_table->{$seq_id} = $Hits_Sorted;
+						
+						# Assign the sorted hits
 						} else {
-							foreach my $Hit (@Hits) {
-								$assignments_table->{$Hit->pattern}{$seq_id} = $Hits_Sorted;
-							}
+							$assignments_table->{$Hits[0]->pattern}{$curr_id} = $Hits_Sorted;
 						}
 					}
 				}
@@ -808,8 +815,8 @@ sub write_barcode_fasta {
 			my $F = $fasta_table->{$seq_id};
 			my $seq = $F->seq; # untrimmed sequence
 	
-			# Get the clear range of our sequence, after trimming off barcodes
-			my ($clear_start, $clear_end) = Barcode::Trimmer->trim_clear_range($seq, $Hits, $CLAMP_LENGTH);
+			# Get the clear range of our sequence (extracts barcode and clamp)
+			my ($clear_start, $clear_end) = Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength);
 			
 			# Throw out this read if we can't defined where the clear range start begins
 			next unless defined $clear_start;
@@ -826,7 +833,7 @@ sub write_barcode_fasta {
 			
 			# Include 454 key offset in writing the trim points
 			# Write trimpoints in residue coordinates (add 1 to start position)
-			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $KEY_LENGTH + 1, $clear_end + $KEY_LENGTH), "\n";
+			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $self->keylength + 1, $clear_end + $self->keylength), "\n";
 			next if $self->trim_points_only;
 			
 			# Update our fasta record with the "clear range" trimmed sequence
@@ -861,7 +868,7 @@ sub write_barcode_fasta {
 				$seqio_fastq->write_fastq($SeqWithQuality);
 				
 			} else {
-				my $desc = join(" ", "barcode=$barcode_id", "length=$clear_seqlen", "barcode_loc=$locs_string", $F->desc);
+				my $desc = join(" ", "barcode=$barcode_id", "length=$clear_seqlen", "fuzznuc_barcode_hits=$locs_string", $F->desc);
 				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_seq;
 				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_qual;
 			}

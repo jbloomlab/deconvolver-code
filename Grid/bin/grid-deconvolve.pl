@@ -127,7 +127,12 @@ B<--keylength,-l>
 B<--trim-points-only>
 	OPTIONAL.  Boolean parameter to output only the trim points file for the 
 			 sequences for each barcode.
-	
+				 
+B<--cleanup>
+	OPTIONAL.  Boolean parameter to determine if the temporary files, such as
+			 the output of fuzznuc searches, should be removed once the 
+			 pipeline is complete.  Default is true.
+		
 B<--help,-h>
 	Print this message
 
@@ -169,6 +174,7 @@ my $results = GetOptions( \%opts,
 					'tmpdir|t=s',
 					'outdir|o=s',
 					'errdir|e=s',
+					'cleanup!',
 					'notify!',
 					'trim_points_only!',
 					'verbose!',
