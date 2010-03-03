@@ -868,7 +868,7 @@ sub write_barcode_fasta {
 				$seqio_fastq->write_fastq($SeqWithQuality);
 				
 			} else {
-				my $desc = join(" ", "barcode=$barcode_id", "length=$clear_seqlen", "fuzznuc_barcode_hits=$locs_string", $F->desc);
+				my $desc = join(" ", "barcode=$barcode_id", "length=$clear_seqlen", $F->desc); # "fuzznuc_barcode_hits=$locs_string" 
 				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_seq;
 				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_qual;
 			}
