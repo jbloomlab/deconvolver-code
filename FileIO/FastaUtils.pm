@@ -173,20 +173,21 @@ B<Returns:> Number of sequences written.
 
 =cut
 
-
 sub write_fasta_from_fastq {
 	my ($self, $fastq_file, $fasta_file, $fasta_quals_file) = @_;
 	my $seq_in = Bio::SeqIO->new(-file => $fastq_file, -format => "fastq" );
 	my $seq_out = Bio::SeqIO->new( -file => ">$fasta_file", -format => "fasta" );
-	my $quals_out = Bio::SeqIO->new( -file => ">$fasta_quals_file", -format => "qual" );
+	my $quals_out = Bio::SeqIO->new( -file => ">$fasta_quals_file", -format => "qual" )
+			if $fasta_quals_file;
+	
 	my $i=0;
 	while (my $inseq = $seq_in->next_seq) {
 		# write fasta sequence file $fasta_file
 		$seq_out->write_seq($inseq); 
 		
-		# write fasta qualities file $fasta_quals_file
+		# Only write qualities file if file path is provided
 		# Note: quality values in BioPerl have the incorrect offset for quality values
-		$quals_out->write_seq($inseq);
+		$quals_out->write_seq($inseq) if $fasta_quals_file;
 		
 		$i++;
 	}

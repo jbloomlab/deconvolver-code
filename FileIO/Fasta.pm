@@ -37,7 +37,7 @@ sub fasta_seq {
 	my $pos=0;
 	do{
 		my $out_width=($width>$length)?$length:$width;
-		$fasta_seq.= substr($seq, $pos, $width)."\n";
+		$fasta_seq.= substr($seq, $pos, $out_width)."\n";
 		$pos+=$width;
 		$length-=$width;
 	}while($length>0);
@@ -52,14 +52,15 @@ sub fasta_qual {
 	$width--;
 	$qual = $F->qual unless $qual;
 	my @quals = split / /, $qual;
+	my $length = scalar @quals;
 	
 	# Add newlines every 60th value
 	my @quals_block;
-	for (my $i=0; $i>scalar @quals; $i++) {
-		push @quals_block, "\n" if !($i % 60);
-		push @quals_block, $quals[$i];
+	for (my $i=0; $i<$length; $i++) {
+		push @quals_block, "\n" if $i && !($i % 60);
+		push @quals_block, "$quals[$i] ";
 	}
-	return join(" ", @quals_block);
+	return join("", @quals_block, "\n");
 }
 
 =item $obj->fasta_record();

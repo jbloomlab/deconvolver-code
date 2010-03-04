@@ -19,7 +19,7 @@ sub hit_iterator {
 	my $file = shift @$files;
 	my $fh = IO::File->new($file) || die "Could not open fuzznuc results file $file.\n";
 	
-	my ($Hit_Iterator, $i, $done, $count);
+	my ($Hit_Iterator, $i, $done);
 	$Hit_Iterator = sub {
 		return undef if $done;
 
@@ -27,7 +27,6 @@ sub hit_iterator {
 		while (<$fh>) {
 			chomp;
 			next if $_ =~ /^SeqName/; # skip headers
-			$count++;
 			
 			my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
 			$num_mismatches = 0 if $num_mismatches eq ".";
@@ -47,9 +46,6 @@ sub hit_iterator {
 		}
 		close $fh;
 		
-		print STDERR "$count $file\n" if $verbose;
-		$count = 0;
-
 		# Open the next file for reading
 		$file = shift @$files;
 		if ($file) {
