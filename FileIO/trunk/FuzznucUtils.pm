@@ -3,7 +3,7 @@ use strict;
 use FileIO::FuzznucHit;
 use IO::File;
 
-=head2 get_hits()
+=head2 hit_iterator()
 	
 	Returns an Iterator of FileIO::FuzznucHit objects,
 	given a list of files from Fuzznuc csv output.
@@ -60,6 +60,77 @@ sub hit_iterator {
 	
 	return $Hit_Iterator;
 }
+
+=head2 hit_pump_iterator()
+	
+	Returns an Iterator of FileIO::FuzznucHit objects,
+	given a list of files from Fuzznuc csv output.
+	
+	Usage is like so
+	while ($Iter->('has_next')) {
+		my $hit = $Iter->(); # or $Iter->('next')
+		next unless $hit;
+		
+	}
+	
+=cut
+
+sub hit_pump_iterator {
+	my ($self, $files, $num_expected_files, $verbose) = @_;
+	
+	# Open the first file for reading
+	my $file = shift @$files;
+	my $fh = IO::File->new($file) || die "Could not open fuzznuc results file $file.\n";
+	
+	my ($Hit_Iterator, $i, $done);
+	$Hit_Iterator = sub {
+		# Users can call $Iterator->('has_next') 
+		# to check if we have exhausted all of the data files that fuel our 
+		# iterator pump
+		my $action = shift || 'next';
+		
+		return undef if $done;
+
+		# Iterate thru our filehandle, and return the next Hit
+		while (<$fh>) {
+			chomp;
+			next if $_ =~ /^SeqName/; # skip headers
+			
+			my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
+			$num_mismatches = 0 if $num_mismatches eq ".";
+			# Use min, max, space-based coordinates
+			my ($min, $max) = ($start < $end) ? ($start, $end) : ($end, $start);
+			$min--;
+			
+			return new FileIO::FuzznucHit({ 
+					seq_id => $seq_id, 
+					min => $min, 
+					max => $max,
+					length => $length,
+					strand => $strand,
+					pattern => $pattern,
+					num_mismatches => $num_mismatches
+			});
+		}
+		close $fh;
+		
+		# Open the next file for reading
+		$file = shift @$files;
+		if ($file) {
+			$fh = IO::File->new("< $file") || die "Could not open fuzznuc output file $file\n";
+			return $Hit_Iterator->();
+		
+		} else {
+			
+			# Finished iterating thru all of the files
+			$done = 1 unless scalar @$files;
+			return undef;
+		}
+	};
+	
+	return $Hit_Iterator;
+}
+
 
 =item $obj->parse_fuzznuc_by_csv_file();
 
