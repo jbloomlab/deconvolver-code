@@ -11,13 +11,18 @@ use Test::More tests => 4;
 my $user=`whoami`; chomp $user;
 $user ||= "deconvolve";
 
+my ($fasta, $pattern, $dir) = @ARGV;
+$fasta ||= "/usr/local/devel/VIRIFX/users/naxelrod/data/FTF2AAH01.sff";
+$pattern ||= "/usr/local/devel/VIRIFX/users/naxelrod/data/barcodes.pat";
+$dir ||= "/usr/local/scratch/$user";
+die "A writeable (and grid-accessible) output directory is required.\n" unless -w $dir;
+die "A barcode pattern file is required.\n" unless -r $pattern;
+die "An input fasta file is required.\n" unless -r $fasta;
+
 # Set the input files and output directories
-my $outdir = "/usr/local/scratch/$user/out";
-my $errdir = "/usr/local/scratch/$user/err";
-my $tmpdir = "/usr/local/scratch/$user/tmp";
-#my $fasta = "$Bin/../t/data/s_1_1_sequence.fastq"; 	
-my $fasta = "$Bin/../t/data/FTF2AAH01.sff"; 	
-my $pattern = "$Bin/../t/data/barcodes.pat"; 		
+my $outdir = "$dir/out";
+my $errdir = "$dir/err";
+my $tmpdir = "$dir/tmp";
 
 # Get our SGE object based on options
 my $grid = new Grid::SGE({
