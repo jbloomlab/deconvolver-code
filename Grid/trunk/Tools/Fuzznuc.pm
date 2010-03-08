@@ -140,7 +140,6 @@ sub get_hits_iterator_by_files {
 	return FileIO::FuzznucUtils->hit_iterator($files);
 }
 
-
 =head2 get_hits_iterator()
 	
 	Returns an iterator of FileIO::FuzznucHit objects
@@ -154,6 +153,36 @@ sub get_hits_iterator {
 	
 	# Return an Iterator of Hit objects
 	return $self->get_hits_iterator_by_files($outfiles);
+}
+
+=head2 get_hits_pump_iterator()
+	
+	Returns an iterator of FileIO::FuzznucHit objects
+	that we can continually pump with output files
+	as each task completes
+	
+=cut
+sub get_hits_pump_iterator {
+	my ($self, $grid) = @_;
+	my $job_id = $grid->job_id;
+	
+	# Feed our iterator until all tasks are complete
+	my @Tasks;
+	while ($grid->num_tasks > scalar @Tasks) {
+		
+		# get the list of completed tasks
+		push @Tasks, $grid->wait_for_tasks($job_id);
+		
+		# Get the outfiles for our completed fuzznuc tasks
+		my $outfiles = $self->get_outfiles($grid);
+		
+		# Update our hits iterator
+		# $self->update_iterator($outfiles);
+		# return $self->get_hits_iterator_by_filepump($outfiles);
+		
+	}
+	
+	
 }
 
 

@@ -75,8 +75,8 @@ my $num_assignments = $Deconvolver->num_assignments;
 my $perc_seqs_with_hits = ($num_seqs) ? int(($num_seqs_with_hits/$num_seqs)*100) : 0;
 my $perc_assignments = ($num_seqs) ? int(($num_assignments/$num_seqs)*100) : 0;
 print join(", ", $num_seqs, $num_seqs_with_hits, $num_assignments, $perc_seqs_with_hits, $perc_assignments), "\n";
-cmp_ok($perc_seqs_with_hits, '>=', 25, "Test at least 25\% of sequences have barcode hits");
-cmp_ok($perc_assignments, '>=', 25, "Test at least 25\% of sequences are assigned to barcodes");
+cmp_ok($perc_seqs_with_hits, '>=', 90, "Test at least 90\% of sequences have barcode hits ($perc_seqs_with_hits)");
+cmp_ok($perc_assignments, '>=', 50, "Test at least 50\% of sequences are assigned to barcodes ($perc_assignments)");
 
 # 601967, 566509, 95, 94, 0
 # perc_assign = 95

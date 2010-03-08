@@ -35,7 +35,7 @@ sub new {
 	
 =cut
 
-sub executable_command() {
+sub executable_command {
 	my $self = shift;
 	return join(" ", $self->executable, $self->get_options_string);
 }
@@ -49,7 +49,7 @@ sub executable_command() {
 	
 =cut
 
-sub run() {
+sub run {
 	my ($self, $grid) = @_;
 	unless ($grid && $grid->isa("Grid::SGE")) {
 		die "Error: $self->run method expects a Grid::SGE object\n";
@@ -70,6 +70,32 @@ sub run() {
 	}
 	return $is_success;
 }
+
+=head2 run_without_waiting()
+	
+	Runs the executable command on the grid
+	
+	Returns 1 on success, 0 on failure.
+	Success is defined by a defined $grid->job_id
+	
+=cut
+
+sub run_without_waiting {
+	my ($self, $grid) = @_;
+	unless ($grid && $grid->isa("Grid::SGE")) {
+		die "Error: $self->run method expects a Grid::SGE object\n";
+	}
+	
+	$grid->add_command($self->command($grid));
+	
+	# Submit our Fuzznuc jobs to the grid and wait until complete
+	my @Jobs = $grid->submit();
+	
+	# successfully run as long as we have a job_id
+	my $is_success = ($grid->job_id) ? 1 : 0;
+	return $is_success;
+}
+
 
 =head2 get_options_string()
 	

@@ -395,6 +395,9 @@ sub submit {
 		my $command = join(" ", $self->qsub_command, shift @$commands);
 		my $job_id = $self->submit_command($command);
 		
+		# set our job id
+		$self->job_id($job_id);
+		
 		# Get our Job from doing qstat
 		push @Jobs, $self->check_jobs_status($job_id);
 	}
@@ -422,6 +425,9 @@ sub submit_and_wait {
 	while (scalar @$commands) {
 		my $command = join(" ", $self->qsub_command, shift @$commands);
 		my $job_id = $self->submit_command($command);
+		
+		# set our job id
+		$self->job_id($job_id);
 		
 		# Wait until we can get our Jobs from doing qacct
 		push @Tasks, $self->wait_for_tasks($job_id);
