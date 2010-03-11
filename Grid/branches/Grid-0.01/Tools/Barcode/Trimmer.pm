@@ -1,4 +1,4 @@
-package Barcode::Trimmer;
+package Grid::Tools::Barcode::Trimmer;
 use strict;
 
 =item $obj->trim_sequence;
