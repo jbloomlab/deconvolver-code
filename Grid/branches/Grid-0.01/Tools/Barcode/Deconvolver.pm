@@ -841,7 +841,7 @@ sub write_barcode_fasta {
 			my $seq = $F->seq; # untrimmed sequence
 	
 			# Get the clear range of our sequence (extracts barcode and clamp)
-			my ($clear_start, $clear_end) = Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength);
+			my ($clear_start, $clear_end) = Grid::Tools::Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength);
 			
 			# Throw out this read if we can't defined where the clear range start begins
 			next unless defined $clear_start;
