@@ -701,10 +701,6 @@ sub make_assignment_table {
 		
 		my $seq_id = $Hit->seq_id;
 		
-		if ($seq_id eq "FTF2AAH01CN3VD") {
-			print join (" ", $Hit->pattern, $seq_id, $Hit->min, $Hit->max, $Hit->strand, $Hit->length), "\n";
-		}
-		
 		if ($curr_id) {
 			
 			# Build a list of hits for this sequence
