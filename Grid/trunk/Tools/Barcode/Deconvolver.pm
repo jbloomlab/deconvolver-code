@@ -438,9 +438,6 @@ sub cleanup_files {
 sub deconvolve {
 	my ($self, $iter) = @_;
 	
-	# Read in our barcode file
-	# my $barcode_table = $self->read_pattern_file;
-	
 	# Store the fasta sequences in a hash table
 	my $fasta_table = $self->make_fasta_table;
 	
