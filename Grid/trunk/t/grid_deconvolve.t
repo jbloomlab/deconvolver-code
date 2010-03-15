@@ -48,6 +48,21 @@ my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
 			options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
 });
 
+# Test that barcode pattern file ($pattern) was read correctly
+my $default_readlength = $Deconvolver->readlength();
+ok($default_readlength == 50, "Default minimum read length is 50.");
+ok($Deconvolver->readlength('BC009CG') == 70, "Minimum read length for barcode BC009CG is 70.");
+
+# Let's set some barcode-specific values (by hash)
+$Deconvolver->clamplength({ 
+	'BC009CG' => 14, 
+	'BC015CG' => 10 
+});
+
+# Or, set as key-value pairs
+$Deconvolver->keylength('BC009CG', 10);
+ok($Deconvolver->keylength('BC009CG') == 10, "Key length for barcode BC009CG is set to 10.");
+
 # Run the grid deconvolution pipeline
 $Deconvolver->run();
 
