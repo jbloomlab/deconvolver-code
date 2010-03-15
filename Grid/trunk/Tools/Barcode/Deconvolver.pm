@@ -44,9 +44,6 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	tmpdir
 	outdir
 	outformat
-	clamplength 
-	keylength 
-	min_readlength
 	barcode_table
 	fasta_table
 	assignments_table
@@ -101,7 +98,7 @@ sub set_defaults {
 	my $cwd = cwd();
 	$self->clamplength($CLAMP_LENGTH) unless defined $self->clamplength;
 	$self->keylength($KEY_LENGTH) unless defined $self->keylength;
-	$self->min_readlength($MIN_READ_LENGTH) unless defined $self->min_readlength;
+	$self->readlength($MIN_READ_LENGTH) unless defined $self->readlength;
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
 	$self->tmpdir($TMP_DIR) unless defined $self->tmpdir;
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
@@ -109,6 +106,9 @@ sub set_defaults {
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
 	$self->num_seqs_with_hits(0);
 	$self->cleanup($CLEANUP) unless defined $self->cleanup;
+	
+	# Read in our pattern file to set barcode-specific clamp, key and readlength 
+	$self->read_pattern_file();
 	
 	# Log results to STDOUT unless a log filehandle is provided
 	$self->logfilehandle(*STDOUT) unless defined $self->logfilehandle;
@@ -204,7 +204,7 @@ sub print_runtime_settings {
 			"#\t-infile $$self{infile}",
 			"#\t-pattern $$self{pattern}",
 			"#\t-informat $$self{informat}",
-			"#\t-min_readlength $$self{min_readlength}",
+			"#\t-readlength $$self{readlength}",
 			"#\t-clamplength $$self{clamplength}",
 			"#\t-keylength $$self{keylength}",
 			"#\t-trim_points_only $$self{trim_points_only}",
@@ -217,6 +217,76 @@ sub print_runtime_settings {
 			"# ============================================================\n"
 	);	
 }
+
+=head2 readlength()
+
+	(1) Set readlength options
+	$self->readlength({ 
+			DA3DFDA13		=> 3, 
+			DA3DFDA25 	=> 5,
+	});
+	
+	(2) Getters and setters for specifying individual options
+	my $readlength = $Tool->readlength('DA3DFDA13');
+	my $readlength = $Tool->readlength('DA3DFDA13', 3);
+	
+=cut
+
+sub readlength {
+	return shift->_options('readlength', @_);
+}
+
+=head2 clamplength()
+	Same approach as readlength
+=cut
+sub clamplength {
+	return shift->_options('clamplength', @_);
+}
+=head2 keylength()
+	Same approach as readlength
+=cut
+sub keylength {
+	return shift->_options('keylength', @_);
+}
+
+=head2 _options()
+	
+	General mechanism used to set hash-based attributes,
+	used for the purpose of enabling barcode-specific options
+	
+=cut
+
+sub _options {
+	my ($self, $attribute, $option, $value) = @_;
+	
+	# This is only used to manage barcode-specific readlength and clamplength values
+	if ($attribute !~ /readlength|clamplength|keylength/) {
+		die "Error: unexepected use of the _options function for attribute $attribute\n";
+	}
+	
+	# Set options using hash, and returns the options hash
+	if (ref($option) eq "HASH") {
+		foreach my $key (keys %$option) {
+			$self->{$attribute}{$key} = $option->{$key};
+		}
+	}
+	
+	# Set option-value pair, and returns the value
+	elsif ($option && $value) {
+		$self->{$attribute}{$option} = $value;
+		return $value;
+	}
+	
+	# Returns the value for an option (typical getter use)
+	elsif ($option) {
+		return $self->{$attribute}{$option}
+			if defined $self->{$attribute}{$option};
+	}
+	
+	# returns the options hash, otherwise
+	return $self->{$attribute};
+}
+
 
 =item set_fuzznuc
  
@@ -367,7 +437,7 @@ sub deconvolve {
 	$self->write_barcode_fasta;
 	
 	# print our log report on completion
-	print $self->print_log_report;
+	$self->print_log_report;
 	
 	# Cleanup after grid jobs
 	$self->cleanup_files() if $self->cleanup;
@@ -513,8 +583,64 @@ sub write_temp_fasta_files {
 sub read_pattern_file {
 	my $self = shift;
 	my $pattern_file = $self->pattern;
+	my $barcode_table = $self->barcode_table;
 	print STDERR "Reading barcode file $pattern_file\n" if $self->verbose;
-	return $self->barcode_table(FileIO::FastaUtils->parse_fasta_by_file($pattern_file));
+	#return $self->barcode_table(FileIO::FastaUtils->parse_fasta_by_file($pattern_file));
+	
+	# We read in the pattern file to do the following
+	# 	- store barcodes in barcode_table lookup
+	#	- Check and/or set barcode-specific values for 
+	# 		- readlength
+	#		- clamplength
+	#		- keylength
+	
+	open(FH_FASTA, "< $pattern_file") || die "Could not open fasta file $pattern_file for reading.\n";
+	
+	# delimit sequences by header line
+	local $/ = "\n>";
+	
+	while (<FH_FASTA>) {
+		chomp;
+		my ($header, @sequence_lines) = split /\n/, $_;
+		$header = substr($header,1) if $header=~/^>/; # strip initial > char
+		
+		# Separate the identifier from the rest of the header line
+		my ($id, $desc);
+		if ($header =~ /^\s*(\S+)\s*(.*)/) {
+			($id, $desc) = ($1, $2);
+			
+			# Check for any parameters in the description line
+			my @attributes = split /\s/, $desc;
+			foreach (@attributes) {
+				$_ =~ s/[\<\>]//g; # remove <> characters
+				my ($key, $value) = split /\=/, $_;
+				if ($key eq "readlength" || $key eq "clamplength" || $key eq "keylength") {
+					$self->_options($key, $id, $value);
+				}
+			}
+		}
+		
+		# Get the sequence
+		my $seq = join("", @sequence_lines);
+		$seq =~ s/\s//g; # strip whitespace and newlines
+		
+		if (exists $barcode_table->{$id}) {
+			# Get the object and set its quality values
+			my $F = $barcode_table->{$id};
+			$F->seq($seq);
+		} else {
+			# Add a new FileIO::Fasta object to our hash table
+			$barcode_table->{$id} = new FileIO::Fasta({
+					id => $id,
+					desc => $desc,
+					seq => $seq,
+			});
+		}
+	}
+     
+     close FH_FASTA;
+     return $barcode_table;
+     
 }
 
 =head2 write_pattern_file_from_glk()
@@ -837,14 +963,14 @@ sub write_barcode_fasta {
 			my $seq = $F->seq; # untrimmed sequence
 	
 			# Get the clear range of our sequence (extracts barcode and clamp)
-			my ($clear_start, $clear_end) = Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength);
+			my ($clear_start, $clear_end) = Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
 			
 			# Throw out this read if we can't defined where the clear range start begins
 			next unless defined $clear_start;
 			
 			# Throw out the read if it does not fulfill our minimum length requirements
 			my $clear_seqlen = $clear_end - $clear_start;
-			next if $self->min_readlength && $clear_seqlen < $self->min_readlength;
+			next if $self->readlength && $clear_seqlen < $self->readlength;
 			
 			# Report the distribution of barcodes across sequences
 			$barcode_distr_table->{$barcode_id}{num_seqs}++;
@@ -854,7 +980,7 @@ sub write_barcode_fasta {
 			
 			# Include 454 key offset in writing the trim points
 			# Write trimpoints in residue coordinates (add 1 to start position)
-			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $self->keylength + 1, $clear_end + $self->keylength), "\n";
+			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $self->keylength($barcode_id) + 1, $clear_end + $self->keylength($barcode_id)), "\n";
 			next if $self->trim_points_only;
 			
 			# Update our fasta record with the "clear range" trimmed sequence
