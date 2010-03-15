@@ -233,20 +233,26 @@ sub print_runtime_settings {
 =cut
 
 sub readlength {
-	return shift->_options('readlength', @_);
+	my $self = shift;
+	return $self->_options('readlength', @_);
+	# return shift->_options('readlength', @_);
 }
 
 =head2 clamplength()
 	Same approach as readlength
 =cut
 sub clamplength {
-	return shift->_options('clamplength', @_);
+	# return shift->_options('clamplength', @_);
+	my $self = shift;
+	return $self->_options('clamplength', @_);
 }
 =head2 keylength()
 	Same approach as readlength
 =cut
 sub keylength {
-	return shift->_options('keylength', @_);
+	# return shift->_options('keylength', @_);
+	my $self = shift;
+	return $self->_options('keylength', @_);
 }
 
 =head2 _options()
@@ -272,19 +278,36 @@ sub _options {
 	}
 	
 	# Set option-value pair, and returns the value
-	elsif ($option && $value) {
+	elsif ($option && defined $value) {
 		$self->{$attribute}{$option} = $value;
 		return $value;
 	}
 	
 	# Returns the value for an option (typical getter use)
-	elsif ($option) {
-		return $self->{$attribute}{$option}
-			if defined $self->{$attribute}{$option};
+	elsif (defined $option) {
+		
+		# Setter case: Setting default values
+		# eg. $self->clamplength(5), ie. $self->_options('clamplength', 5);
+		if ($option =~ /\d/) {
+			$self->{$attribute}{'DEFAULT'} = $option;
+			return $option;
+		
+		# Getter cases
+		} else {
+			
+			# standard getter, ie. $self->clamplength('BC009CG');
+			if (defined $self->{$attribute}{$option}) {
+				return $self->{$attribute}{$option};
+			
+			# Otherwise, return the default value
+			} else {
+				return $self->{$attribute}{'DEFAULT'};
+			}
+		}
 	}
 	
-	# returns the options hash, otherwise
-	return $self->{$attribute};
+	# returns the default value for the attribute
+	return $self->{$attribute}{'DEFAULT'};
 }
 
 
@@ -349,7 +372,7 @@ sub run {
 	$self->write_temp_fasta_files;
 	
 	# Read our barcode file (stores results in $self->barcode_table)
-	$self->read_pattern_file;
+	# $self->read_pattern_file;
 	
 	# Run Fuzznuc searches, and get an iterator of FileIO::FuzznucHit objects
 	my ($is_success, $iter);
@@ -422,7 +445,7 @@ sub deconvolve {
 	my ($self, $iter) = @_;
 	
 	# Read in our barcode file
-	my $barcode_table = $self->read_pattern_file;
+	# my $barcode_table = $self->read_pattern_file;
 	
 	# Store the fasta sequences in a hash table
 	my $fasta_table = $self->make_fasta_table;
@@ -640,7 +663,6 @@ sub read_pattern_file {
      
      close FH_FASTA;
      return $barcode_table;
-     
 }
 
 =head2 write_pattern_file_from_glk()
@@ -963,7 +985,7 @@ sub write_barcode_fasta {
 			my $seq = $F->seq; # untrimmed sequence
 	
 			# Get the clear range of our sequence (extracts barcode and clamp)
-			my ($clear_start, $clear_end) = Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
+			my ($clear_start, $clear_end) = Grid::Tools::Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
 			
 			# Throw out this read if we can't defined where the clear range start begins
 			next unless defined $clear_start;
