@@ -233,26 +233,20 @@ sub print_runtime_settings {
 =cut
 
 sub readlength {
-	my $self = shift;
-	return $self->_options('readlength', @_);
-	# return shift->_options('readlength', @_);
+	return shift->_options('readlength', @_);
 }
 
 =head2 clamplength()
 	Same approach as readlength
 =cut
 sub clamplength {
-	# return shift->_options('clamplength', @_);
-	my $self = shift;
-	return $self->_options('clamplength', @_);
+	return shift->_options('clamplength', @_);
 }
 =head2 keylength()
 	Same approach as readlength
 =cut
 sub keylength {
-	# return shift->_options('keylength', @_);
-	my $self = shift;
-	return $self->_options('keylength', @_);
+	return shift->_options('keylength', @_);
 }
 
 =head2 _options()
