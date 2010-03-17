@@ -93,14 +93,14 @@ sub trim_clear_range {
 		# this is odd, but...
 		#                                    [**************]
 		# ---Barcode---Clamp---Barcode---Clamp==============Clamp---Barcode---
-		if ($hit1->strand eq "+" && $hit2->strand eq "-") {
+		if ($hit1->strand eq "+" && $hit2->strand eq "+" && $hit3->strand eq "-") {
 			$start = $hit2->max + $clamp_length;
 			$end = $hit3->min - $clamp_length;
 		
 		# this is odd, but...
 		#                  [**************]
-		# ---Barcode---Clamp==============---Barcode---Clamp---Barcode---Clamp
-		} elsif ($hit1->strand eq "+" && $hit2->strand eq "+") {
+		# ---Barcode---Clamp==============Clamp---Barcode---Clamp---Barcode---
+		} elsif ($hit1->strand eq "+" && $hit2->strand eq "-" && $hit3->strand eq "-") {
 			$start = $hit1->max + $clamp_length;
 			$end = $hit2->min - $clamp_length;
 		}
