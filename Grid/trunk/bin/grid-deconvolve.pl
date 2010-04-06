@@ -133,6 +133,10 @@ B<--trim-points-only>
 	OPTIONAL.  Boolean parameter to output only the trim points file for the 
 			 sequences for each barcode.
 				 
+B<--num_seqs>
+	OPTIONAL.  Integer parameter to specify the number of sequences per fasta 
+			 file for splitting and distributing the Fuzznuc searches.
+
 B<--cleanup>
 	OPTIONAL.  Boolean parameter to determine if the temporary files, such as
 			 the output of fuzznuc searches, should be removed once the 
@@ -175,6 +179,7 @@ my $results = GetOptions( \%opts,
 					'queue|q=s',
 					'mailto|m=s',
 					'mailon|on=s',
+					'num_seqs:i',
 					'poll_delay:i',
 					'options|opts=s',
 					'tmpdir|t=s',

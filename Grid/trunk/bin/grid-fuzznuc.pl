@@ -95,6 +95,10 @@ B<--name,-n>
 B<--queue,-q>
 	OPTIONAL.  qsub destination queue.
 
+B<--num_seqs>
+	OPTIONAL.  Integer parameter to specify the number of sequences per fasta 
+			 file for splitting and distributing the Fuzznuc searches.
+
 B<--mailto,-e>
 	OPTIONAL.  Email address to send job status notifications.
 
@@ -130,6 +134,7 @@ my $results = GetOptions( \%opts,
 					'mailto|m=s',
 					'mailon|on:s',
 					'poll_delay:i',
+					'num_seqs:i',
 					'options|opts=s',
 					'tmpdir|t=s',
 					'outdir|o:s',
