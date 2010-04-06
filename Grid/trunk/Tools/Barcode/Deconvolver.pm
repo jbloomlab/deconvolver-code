@@ -282,7 +282,7 @@ sub _options {
 		
 		# Setter case: Setting default values
 		# eg. $self->clamplength(5), ie. $self->_options('clamplength', 5);
-		if ($option =~ /\d/) {
+		if ($option =~ /\d/ && $option !~ /\D/) { # ints only
 			$self->{$attribute}{'DEFAULT'} = $option;
 			return $option;
 		

@@ -32,6 +32,7 @@ use Grid::Tools::Fuzznuc;
 	
 	my $grid = new Grid::SGE({
 				project 	=> 810001,
+				queue	=> "fast.q",
 				name		=> "myJob",
 				verbose	=> 1,
 	});
@@ -67,6 +68,7 @@ use Grid::Tools::Fuzznuc;
 		--fasta seq.fasta
 		--pattern t/barcodes.pat
 	[	--name myJob
+		--queue fast.q
 		--mailto naxelrod@jcvi.org
 		--mailon abe 
 		--notify 0
@@ -89,7 +91,10 @@ B<--project,-p>
 
 B<--name,-n>
 	OPTIONAL.  Job name.
-	
+
+B<--queue,-q>
+	OPTIONAL.  qsub destination queue.
+
 B<--mailto,-e>
 	OPTIONAL.  Email address to send job status notifications.
 
@@ -121,6 +126,7 @@ my $results = GetOptions( \%opts,
 					'fasta|f=s@',
 					'project|p=s',
 					'name|n=s',
+					'queue|q=s',
 					'mailto|m=s',
 					'mailon|on:s',
 					'poll_delay:i',
