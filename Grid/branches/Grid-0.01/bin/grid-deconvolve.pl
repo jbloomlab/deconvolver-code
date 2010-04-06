@@ -32,6 +32,7 @@ use Time::HiRes qw(gettimeofday);
 	# Get our SGE object based on options
 	my $grid = new Grid::SGE({
 				project 	=> 810001,
+				queue	=> "fast.q",
 				name		=> "gridDeconvolve",
 				tmpdir	=> $tmpdir,
 				errdir	=> $errdir,
@@ -72,6 +73,7 @@ use Time::HiRes qw(gettimeofday);
 		--notify 0
 	     --verbose
 	  	--priority 1
+	  	--queue fast.q
 	  	--trim-points-only
 		--o /path/to/out
 		--e /path/to/err
@@ -90,7 +92,10 @@ B<--project,-p>
 
 B<--name,-n>
 	OPTIONAL.  Job name.
-	
+
+B<--queue,-q>
+	OPTIONAL.  qsub destination queue.
+
 B<--mailto,-e>
 	OPTIONAL.  Email address to send job status notifications.
 
@@ -167,6 +172,7 @@ my $results = GetOptions( \%opts,
 					'infile|f=s',
 					'pattern=s',
 					'name|n=s',
+					'queue|q=s',
 					'mailto|m=s',
 					'mailon|on=s',
 					'poll_delay:i',

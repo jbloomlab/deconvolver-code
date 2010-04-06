@@ -36,6 +36,7 @@ my %OPTIONS = (
 		'mailto'		=> '-M',
 		'mailon'		=> '-m',
 		'tasks'		=> '-t',
+		'queue'		=> '-q',
 		'outdir'		=> '-o',
 		'errdir'		=> '-e',
 );
