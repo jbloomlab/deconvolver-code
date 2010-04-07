@@ -400,6 +400,8 @@ sub submit {
 	while (scalar @$commands) {
 		my $command = join(" ", $self->qsub_command, shift @$commands);
 		my $job_id = $self->submit_command($command);
+		die "No job id returned from grid submission.  Check the qsub command.\n"
+			unless defined $job_id;
 		
 		# set our job id
 		$self->job_id($job_id);
@@ -431,6 +433,8 @@ sub submit_and_wait {
 	while (scalar @$commands) {
 		my $command = join(" ", $self->qsub_command, shift @$commands);
 		my $job_id = $self->submit_command($command);
+		die "No job id returned from grid submission.  Check the qsub command.\n"
+			unless defined $job_id;
 		
 		# set our job id
 		$self->job_id($job_id);
