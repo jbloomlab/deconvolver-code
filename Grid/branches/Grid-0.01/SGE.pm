@@ -36,7 +36,7 @@ my %OPTIONS = (
 		'mailto'		=> '-M',
 		'mailon'		=> '-m',
 		'tasks'		=> '-t',
-		'queue'		=> '-q',
+		'queue'		=> '-l',
 		'outdir'		=> '-o',
 		'errdir'		=> '-e',
 );
@@ -357,6 +357,11 @@ sub qsub_command {
 	# add key-value parameters
 	foreach my $tag (keys %OPTIONS) {
 		if ($self->{$tag}) {
+			# special handling for specifying the queue
+			if ($tag eq "queue") {
+				($self->{$tag}) = split /\./, $self->{$tag};
+			}
+			
 			$qsub_command .= join(" ", " $OPTIONS{$tag}", $self->{$tag});
 		}
 	}
