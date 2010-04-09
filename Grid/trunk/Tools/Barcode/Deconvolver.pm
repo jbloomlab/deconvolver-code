@@ -101,6 +101,7 @@ sub init {
 sub set_defaults {
 	my $self = shift;
 	my $cwd = cwd();
+	$self->key("") unless defined $self->key;
 	$self->clamplength($CLAMP_LENGTH) unless defined $self->clamplength;
 	$self->readlength($MIN_READ_LENGTH) unless defined $self->readlength;
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
