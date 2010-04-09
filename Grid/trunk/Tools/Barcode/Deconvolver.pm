@@ -41,6 +41,7 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	quals_file
 	sff_file
 	pattern
+	mismatches
 	tmpdir
 	outdir
 	outformat
@@ -204,6 +205,7 @@ sub print_runtime_settings {
 			"#\t-infile $$self{infile}",
 			"#\t-pattern $$self{pattern}",
 			"#\t-informat $$self{informat}",
+			"#\t-mismatches $$self{mismatches}",
 			"#\t-readlength $$self{readlength}",
 			"#\t-clamplength $$self{clamplength}",
 			"#\t-keylength $$self{keylength}",
@@ -320,6 +322,10 @@ sub set_fuzznuc {
 	
 	# Add the barcode pattern to our fuzznuc options
 	$self->options('pattern', "\@$$self{pattern}");
+	
+	# Add the user-specified number of mismatches, if provided
+	$self->options('pmismatch', $self->mismatches)
+		if defined $self->mismatches;
 	
 	# Requires csv output
 	$self->options('rformat', 'excel');

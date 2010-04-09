@@ -96,10 +96,10 @@ B<--name,-n>
 B<--queue,-q>
 	OPTIONAL.  qsub destination queue.
 
-B<--mailto,-e>
+B<--mailto>
 	OPTIONAL.  Email address to send job status notifications.
 
-B<--mailon,-o>
+B<--mailon>
 	OPTIONAL.  Status events to determine when to job notifications.
 			 Example: be 
 	# a		 mail is sent when the job is aborted by the batch system. 
@@ -141,7 +141,7 @@ B<--cleanup>
 	OPTIONAL.  Boolean parameter to determine if the temporary files, such as
 			 the output of fuzznuc searches, should be removed once the 
 			 pipeline is complete.  Default is true.
-		
+
 B<--help,-h>
 	Print this message
 
@@ -177,8 +177,9 @@ my $results = GetOptions( \%opts,
 					'pattern=s',
 					'name|n=s',
 					'queue|q=s',
-					'mailto|m=s',
-					'mailon|on=s',
+					'mailto=s',
+					'mailon=s',
+					'mismatches|m:i',
 					'num_seqs:i',
 					'poll_delay:i',
 					'options|opts=s',
