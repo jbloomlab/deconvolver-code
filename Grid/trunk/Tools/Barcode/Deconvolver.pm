@@ -51,6 +51,7 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	multibarcode_table
 	barcode_distr_table
 	hit_table
+	key
 	trim_points_only 
 	verbose
 	guid
@@ -98,7 +99,6 @@ sub set_defaults {
 	my $self = shift;
 	my $cwd = cwd();
 	$self->clamplength($CLAMP_LENGTH) unless defined $self->clamplength;
-	$self->keylength($KEY_LENGTH) unless defined $self->keylength;
 	$self->readlength($MIN_READ_LENGTH) unless defined $self->readlength;
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
 	$self->tmpdir($TMP_DIR) unless defined $self->tmpdir;
@@ -108,7 +108,7 @@ sub set_defaults {
 	$self->num_seqs_with_hits(0);
 	$self->cleanup($CLEANUP) unless defined $self->cleanup;
 	
-	# Read in our pattern file to set barcode-specific clamp, key and readlength 
+	# Read in our pattern file to set barcode-specific clamplength and readlength 
 	$self->read_pattern_file();
 	
 	# Log results to STDOUT unless a log filehandle is provided
@@ -153,6 +153,10 @@ sub validate_parameters {
 	$error_mssg.= "Error: Failed test attempt to guess path of fuzznuc executable\n"
 			unless $guess_exec;
 	
+	# Verify that the key sequence is provided only for sff input files
+	$error_mssg.= "Error: Providing a key sequence is only compatible with sff input files.\n"
+		if defined $self->key && $self->informat ne "sff";
+		
 	return $error_mssg;
 }
 
@@ -371,6 +375,9 @@ sub run {
 	# Generate Fasta sequence and quality files
 	$self->write_temp_fasta_files;
 	
+	# Write a pattern file, prepending our barcodes with the key sequence, if provided
+	$self->write_temp_pattern_file;
+	
 	# Read our barcode file (stores results in $self->barcode_table)
 	# $self->read_pattern_file;
 	
@@ -531,6 +538,7 @@ sub run_fuzznuc {
 	return ($is_success, $output_file);
 }
 
+
 sub write_temp_fasta_files {
 	my $self = shift;
 	
@@ -579,7 +587,12 @@ sub write_temp_fasta_files {
 		
 		# (2) convert to fasta sequence file
 		print STDERR "Writing fasta sequences from sff file\n" if $self->verbose;
-		my $sc_fasta = "sffinfo -s $sff_file > $fasta_file";
+		
+		# Use the untrimmed sequence file (with key sequence prepended) for our searches
+		my $sc_fasta = ($self->key) 
+						? "sffinfo -notrim -s $sff_file > $fasta_file";
+						: "sffinfo -s $sff_file > $fasta_file";
+		
 		die "Error: Problem with writing fasta from sff file $sff_file\n" 
 				if system($sc_fasta);
 		
@@ -604,25 +617,43 @@ sub read_pattern_file {
 	my $self = shift;
 	my $pattern_file = $self->pattern;
 	my $barcode_table = $self->barcode_table;
-	print STDERR "Reading barcode file $pattern_file\n" if $self->verbose;
-	#return $self->barcode_table(FileIO::FastaUtils->parse_fasta_by_file($pattern_file));
+	if ($self->verbose) {
+		if ($self->key) {
+			print STDERR "Writing barcode file with prepended key sequence ($$self{key}) to $pattern_file\n";
+		} else {
+			print STDERR "Reading barcode file $pattern_file\n";
+		}
+	}
 	
 	# We read in the pattern file to do the following
 	# 	- store barcodes in barcode_table lookup
 	#	- Check and/or set barcode-specific values for 
 	# 		- readlength
 	#		- clamplength
-	#		- keylength
+	open(IN, "< $pattern_file") || die "Could not open fasta file $pattern_file for reading.\n";
 	
-	open(FH_FASTA, "< $pattern_file") || die "Could not open fasta file $pattern_file for reading.\n";
+	# We output a temporary pattern file with prepended key sequences if provided (in tmpdir)
+	if ($self->key) {
+		my ($base_file) = fileparse($pattern_file, qr/\.[^.]*/);
+		my $tmp_pattern_file = $self->pattern($self->tmpdir."/$base_file.pat");
+		open(OUT, "> $tmp_pattern_file") || die "Could not open fasta file $tmp_pattern_file for writing.\n";
+	}
 	
 	# delimit sequences by header line
 	local $/ = "\n>";
 	
-	while (<FH_FASTA>) {
+	while (<IN>) {
 		chomp;
 		my ($header, @sequence_lines) = split /\n/, $_;
-		$header = substr($header,1) if $header=~/^>/; # strip initial > char
+		
+		# Output the barcode sequence prepended with the key sequence
+		if ($self->key) {
+			$sequence_lines[0] = $self->key . $sequence_lines[0];
+			print OUT join("\n", $header, @sequence_lines);
+		}
+		
+		# strip initial > char
+		$header = substr($header,1) if $header=~/^>/; 
 		
 		# Separate the identifier from the rest of the header line
 		my ($id, $desc);
@@ -634,7 +665,7 @@ sub read_pattern_file {
 			foreach (@attributes) {
 				$_ =~ s/[\<\>]//g; # remove <> characters
 				my ($key, $value) = split /\=/, $_;
-				if ($key eq "readlength" || $key eq "clamplength" || $key eq "keylength") {
+				if ($key eq "readlength" || $key eq "clamplength") {
 					$self->_options($key, $id, $value);
 				}
 			}
@@ -658,7 +689,9 @@ sub read_pattern_file {
 		}
 	}
      
-     close FH_FASTA;
+     close IN;
+     close OUT if $self->key;
+     
      return $barcode_table;
 }
 
@@ -997,9 +1030,8 @@ sub write_barcode_fasta {
 			$barcode_distr_table->{total}{seqs}++;
 			$barcode_distr_table->{total}{bp} += $clear_seqlen;
 			
-			# Include 454 key offset in writing the trim points
 			# Write trimpoints in residue coordinates (add 1 to start position)
-			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + $self->keylength($barcode_id) + 1, $clear_end + $self->keylength($barcode_id)), "\n";
+			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + 1, $clear_end), "\n";
 			next if $self->trim_points_only;
 			
 			# Update our fasta record with the "clear range" trimmed sequence
