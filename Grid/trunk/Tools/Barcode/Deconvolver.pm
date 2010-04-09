@@ -82,6 +82,9 @@ sub init {
 	# Set defaults for any unspecified, optional parameters
 	$self->set_defaults();
 	
+	# Read in our pattern file to set barcode-specific clamplength and readlength 
+	$self->read_pattern_file();
+	
 	# Make output directories
 	mkdir $self->outdir unless -e $self->outdir;
 	mkdir $self->tmpdir unless -e $self->tmpdir;
@@ -109,7 +112,7 @@ sub set_defaults {
 	$self->cleanup($CLEANUP) unless defined $self->cleanup;
 	
 	# Read in our pattern file to set barcode-specific clamplength and readlength 
-	$self->read_pattern_file();
+	# $self->read_pattern_file();
 	
 	# Log results to STDOUT unless a log filehandle is provided
 	$self->logfilehandle(*STDOUT) unless defined $self->logfilehandle;
@@ -210,9 +213,9 @@ sub print_runtime_settings {
 			"#\t-pattern $$self{pattern}",
 			"#\t-informat $$self{informat}",
 			"#\t-mismatches $$self{mismatches}",
-			"#\t-readlength $$self{readlength}",
-			"#\t-clamplength $$self{clamplength}",
-			"#\t-keylength $$self{keylength}",
+			"#\t-readlength ".$self->readlength,
+			"#\t-clamplength ".$self->clamplength,
+			"#\t-key $$self{key}",
 			"#\t-trim_points_only $$self{trim_points_only}",
 			"#\t-tmpdir $$self{tmpdir}",
 			"#\t-outdir $$self{outdir}",
@@ -374,9 +377,6 @@ sub run {
 	
 	# Generate Fasta sequence and quality files
 	$self->write_temp_fasta_files;
-	
-	# Write a pattern file, prepending our barcodes with the key sequence, if provided
-	$self->write_temp_pattern_file;
 	
 	# Read our barcode file (stores results in $self->barcode_table)
 	# $self->read_pattern_file;
@@ -548,8 +548,6 @@ sub write_temp_fasta_files {
 	my $fastq_file = $self->fastq_file($self->tmpdir."/$base_file.fastq");
 	my $quals_file = $self->quals_file($self->tmpdir."/$base_file.quals");
 	my $infile = $self->infile;
-	
-	# return if -f $fasta_file && -f $quals_file;
 	
 	if ($self->informat eq "fasta") {
 		
