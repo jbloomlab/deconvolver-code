@@ -11,21 +11,8 @@ use Time::HiRes qw(gettimeofday);
 =head1 NAME
 	
 	grid-deconvolve.pl -  A command-line interface to run the JCVI
-				  deconvolution pipeline using Sun Grid Engine,
-				  or optionally without the grid.
-				  
-				  Trim reports
-				  Trims barcodes off of sequences, and writes a trim report
-				  per barcode in $self->outdir/<barcode_id>_<barcode seq>
-				  
-				  Multicode report
-				  $Deconvolver->outdir/report_multicode.log
-				  Provides a list of multicoded sequences and the list 
-				  of barcodes that hits each sequence
-				  
-				  Log report (written to STDOUT BY default)
-				  optionally written to $Deconvolver->logfilehandle
-				  Provides summary stats 
+				deconvolution pipeline using Sun Grid Engine,
+				or optionally without the grid.
 	
 =head1 SYNOPSIS
 	
@@ -53,8 +40,8 @@ use Time::HiRes qw(gettimeofday);
 				verbose	=> 1,
 				options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
 	});
-		
-	# Run the deconvolution pipeline 
+	
+	# Run the deconvolution pipeline
 	# returns the number of sequence-barcode assignments
 	my $num_assignments = $Deconvolver->run();
 	

@@ -590,7 +590,7 @@ sub write_temp_fasta_files {
 		
 		# Use the untrimmed sequence file (with key sequence prepended) for our searches
 		my $sc_fasta = ($self->key) 
-						? "sffinfo -notrim -s $sff_file > $fasta_file";
+						? "sffinfo -notrim -s $sff_file > $fasta_file"
 						: "sffinfo -s $sff_file > $fasta_file";
 		
 		die "Error: Problem with writing fasta from sff file $sff_file\n" 
