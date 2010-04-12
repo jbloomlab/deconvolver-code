@@ -890,18 +890,18 @@ sub make_assignment_table {
 				$num_seqs_with_hits++;
 				my $num_hits = scalar @Hits;
 				
-				# Handle the previous set of Hits
+				# Handle the previous set of Hits (to $curr_id)
 				if ($num_hits) {
 					
 					# Assign sequence to its unique barcode hit
 					if ($num_hits == 1) {
-						$assignments_table->{$Hit->pattern}{$seq_id} = [ $Hit ];
+						$assignments_table->{$Hits[0]->pattern}{$curr_id} = \@Hits;
 						
 					# Otherwise, check if this sequence has multiple barcode hits
 					} else {
 						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(\@Hits);
 						if ($is_multicoded) {
-							$multibarcode_table->{$seq_id} = $Hits_Sorted;
+							$multibarcode_table->{$curr_id} = $Hits_Sorted;
 						
 						# Assign the sorted hits
 						} else {
