@@ -600,6 +600,10 @@ sub write_temp_fasta_files {
 			# (3) convert to fasta qualities file
 			print STDERR "Writing fasta qualities from sff file\n" if $self->verbose;
 			my $sc_fasta_quals = "sffinfo -q $sff_file > $quals_file";
+			my $sc_fasta_quals = ($self->key) 
+						? "sffinfo -notrim -q $sff_file > $quals_file"
+						: "sffinfo -q $sff_file > $quals_file";
+			
 			die "Error: Problem with writing fasta qualies from sff file $sff_file\n" 
 					if system($sc_fasta_quals);
 		}
@@ -810,8 +814,8 @@ sub write_multicode_report {
 		my @hits = @{ $multibarcode_table->{$seq_id} };
 		my $report = "$seq_id\t";
 		foreach my $H (@hits) {
-			my ($pattern, $mismatches) = ($H->pattern, $H->num_mismatches);
-			$report .= "\t$pattern ($mismatches)";
+			my $hit_loc = $H->min."..".$H->max.":".$H->strand;
+			$report .= "\t".join(" ", $H->pattern, $hit_loc);
 		}
 		print FH $report, "\n";
 	}
