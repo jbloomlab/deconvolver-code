@@ -15,7 +15,7 @@ my ($fasta, $pattern, $dir) = @ARGV;
 $fasta ||= "/usr/local/devel/VIRIFX/users/naxelrod/data/FTF2AAH01.sff";
 $pattern ||= "/usr/local/devel/VIRIFX/users/naxelrod/data/barcodes.pat";
 $dir ||= "/usr/local/scratch/$user";
-die "A writeable (and grid-accessible) output directory is required.\n" unless -w $dir;
+die "Output directory $dir is not writeable.\n" unless -w $dir;
 die "A barcode pattern file is required.\n" unless -r $pattern;
 die "An input fasta file is required.\n" unless -r $fasta;
 
@@ -27,6 +27,7 @@ my $tmpdir = "$dir/tmp";
 # Get our SGE object based on options
 my $grid = new Grid::SGE({
 			project 	=> 810001,
+			queue	=> "fast.q",
 			name		=> "gridDeconvolve",
 			tmpdir	=> $tmpdir,
 			errdir	=> $errdir,
@@ -58,10 +59,11 @@ $Deconvolver->clamplength({
 	'BC009CG' => 14, 
 	'BC015CG' => 10 
 });
+ok($Deconvolver->clamplength('BC009CG') == 14, "Test setting clamplength for barcode BC009CG by hash.");
 
 # Or, set as key-value pairs
-$Deconvolver->keylength('BC009CG', 10);
-ok($Deconvolver->keylength('BC009CG') == 10, "Key length for barcode BC009CG is set to 10.");
+$Deconvolver->clamplength('BC009CG', 10);
+ok($Deconvolver->clamplength('BC009CG') == 10, "Test setting clamplength for barcode BC009CG by argument.");
 
 # Run the grid deconvolution pipeline
 $Deconvolver->run();

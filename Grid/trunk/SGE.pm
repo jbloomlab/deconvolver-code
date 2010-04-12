@@ -361,7 +361,7 @@ sub qsub_command {
 			if ($tag eq "queue") {
 				($self->{$tag}) = split /\./, $self->{$tag};
 			}
-
+			
 			$qsub_command .= join(" ", " $OPTIONS{$tag}", $self->{$tag});
 		}
 	}
@@ -433,7 +433,6 @@ sub submit_and_wait {
 	while (scalar @$commands) {
 		my $command = join(" ", $self->qsub_command, shift @$commands);
 		my $job_id = $self->submit_command($command);
-		
 		die "No job id returned from grid submission.  Check the qsub command.\n"
 			unless defined $job_id;
 		
