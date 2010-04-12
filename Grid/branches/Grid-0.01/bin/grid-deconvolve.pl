@@ -11,21 +11,8 @@ use Time::HiRes qw(gettimeofday);
 =head1 NAME
 	
 	grid-deconvolve.pl -  A command-line interface to run the JCVI
-				  deconvolution pipeline using Sun Grid Engine,
-				  or optionally without the grid.
-				  
-				  Trim reports
-				  Trims barcodes off of sequences, and writes a trim report
-				  per barcode in $self->outdir/<barcode_id>_<barcode seq>
-				  
-				  Multicode report
-				  $Deconvolver->outdir/report_multicode.log
-				  Provides a list of multicoded sequences and the list 
-				  of barcodes that hits each sequence
-				  
-				  Log report (written to STDOUT BY default)
-				  optionally written to $Deconvolver->logfilehandle
-				  Provides summary stats 
+				deconvolution pipeline using Sun Grid Engine,
+				or optionally without the grid.
 	
 =head1 SYNOPSIS
 	
@@ -53,8 +40,8 @@ use Time::HiRes qw(gettimeofday);
 				verbose	=> 1,
 				options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
 	});
-		
-	# Run the deconvolution pipeline 
+	
+	# Run the deconvolution pipeline
 	# returns the number of sequence-barcode assignments
 	my $num_assignments = $Deconvolver->run();
 	
@@ -124,10 +111,12 @@ B<--readlength,-l>
 B<--clamplength,-l>
 	OPTIONAL.  The length of the barcode clamp. A/K/A hexamer length.  Default is 6.
 
-B<--keylength,-l>
-	OPTIONAL.  The trim points for 454 sequences typically need to be offset by
-			 the key length of 4bp.  This is used for defining the trim points
-			 file.  Default is 0.
+B<--key,-k>
+	OPTIONAL.  The Roche/454 key sequence.  This is typically a 4bp sequence (eg. TCAG)
+			 that is on the 5' end of any read, upstream of the barcode sequence.
+			 If the key sequence is provided, we search the key + barcode sequence
+			 against the untrimmed read sequences to define the appropriate
+			 trim points.  Default is undefined.
 
 B<--trim-points-only>
 	OPTIONAL.  Boolean parameter to output only the trim points file for the 
@@ -186,6 +175,7 @@ my $results = GetOptions( \%opts,
 					'tmpdir|t=s',
 					'outdir|o=s',
 					'errdir|e=s',
+					'key|k=s',
 					'cleanup!',
 					'notify!',
 					'trim_points_only!',
