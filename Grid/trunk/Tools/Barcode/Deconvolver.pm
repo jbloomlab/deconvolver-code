@@ -616,13 +616,6 @@ sub read_pattern_file {
 	my $self = shift;
 	my $pattern_file = $self->pattern;
 	my $barcode_table = $self->barcode_table;
-	if ($self->verbose) {
-		if ($self->key) {
-			print STDERR "Writing barcode file with prepended key sequence ($$self{key}) to $pattern_file\n";
-		} else {
-			print STDERR "Reading barcode file $pattern_file\n";
-		}
-	}
 	
 	# We read in the pattern file to do the following
 	# 	- store barcodes in barcode_table lookup
@@ -638,6 +631,14 @@ sub read_pattern_file {
 		open(OUT, "> $tmp_pattern_file") || die "Could not open fasta file $tmp_pattern_file for writing.\n";
 	}
 	
+	if ($self->verbose) {
+		if ($self->key) {
+			print STDERR "Writing barcode file with prepended key sequence ($$self{key}) to $pattern_file\n";
+		} else {
+			print STDERR "Reading barcode file $pattern_file\n";
+		}
+	}
+	
 	# delimit sequences by header line
 	local $/ = "\n>";
 	
@@ -645,14 +646,14 @@ sub read_pattern_file {
 		chomp;
 		my ($header, @sequence_lines) = split /\n/, $_;
 		
+		# strip initial > char
+		$header = substr($header,1) if $header=~/^>/; 
+		
 		# Output the barcode sequence prepended with the key sequence
 		if ($self->key) {
 			$sequence_lines[0] = $self->key . $sequence_lines[0];
-			print OUT join("\n", $header, @sequence_lines);
+			print OUT join("\n", ">$header", @sequence_lines), "\n";
 		}
-		
-		# strip initial > char
-		$header = substr($header,1) if $header=~/^>/; 
 		
 		# Separate the identifier from the rest of the header line
 		my ($id, $desc);
@@ -764,7 +765,7 @@ sub print_log_report {
 	my $multibarcode_table = $self->multibarcode_table;
 	my $num_seqs = ($self->fasta_table) ? scalar keys %{ $self->fasta_table } : 0;
 	my $num_barcodes = ($self->barcode_table) ? scalar keys %{ $self->barcode_table } : 0;
-	my $num_seqs_with_hits = $self->num_seqs_with_hits;
+	my $num_seqs_with_hits = $self->num_seqs_with_hits || 0;
 	my $num_multicoded_seqs = ($multibarcode_table) ? scalar keys %{ $multibarcode_table } : 0;
 	my $perc_seqs_with_hits = ($num_seqs) ? sprintf("%.2f", (($num_seqs_with_hits/$num_seqs)*100)) : "0.0";
 	my $perc_multicoded_seqs = ($num_seqs) ? sprintf("%.2f", (($num_multicoded_seqs/$num_seqs)*100)) : "0.0";
