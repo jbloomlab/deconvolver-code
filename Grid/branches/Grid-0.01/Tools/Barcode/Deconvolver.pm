@@ -600,6 +600,10 @@ sub write_temp_fasta_files {
 			# (3) convert to fasta qualities file
 			print STDERR "Writing fasta qualities from sff file\n" if $self->verbose;
 			my $sc_fasta_quals = "sffinfo -q $sff_file > $quals_file";
+			my $sc_fasta_quals = ($self->key) 
+						? "sffinfo -notrim -q $sff_file > $quals_file"
+						: "sffinfo -q $sff_file > $quals_file";
+			
 			die "Error: Problem with writing fasta qualies from sff file $sff_file\n" 
 					if system($sc_fasta_quals);
 		}
@@ -810,8 +814,8 @@ sub write_multicode_report {
 		my @hits = @{ $multibarcode_table->{$seq_id} };
 		my $report = "$seq_id\t";
 		foreach my $H (@hits) {
-			my ($pattern, $mismatches) = ($H->pattern, $H->num_mismatches);
-			$report .= "\t$pattern ($mismatches)";
+			my $hit_loc = $H->min."..".$H->max.":".$H->strand;
+			$report .= "\t".join(" ", $H->pattern, $hit_loc);
 		}
 		print FH $report, "\n";
 	}
@@ -874,15 +878,15 @@ sub make_assignment_table {
 	my $multibarcode_table;
 	
 	# Iterate through our hits, which we assume are sorted by sequence
-	my ($curr_id, @Hits, $num_seqs_with_hits);
+	my ($prev_id, @Hits, $num_seqs_with_hits);
 	while (my $Hit = $Hit_Iterator->()) {
 		
 		my $seq_id = $Hit->seq_id;
 		
-		if ($curr_id) {
+		if ($prev_id) {
 			
 			# Build a list of hits for this sequence
-			if ($curr_id eq $seq_id) {
+			if ($prev_id eq $seq_id) {
 				push @Hits, $Hit;
 				
 			# Reached a new sequence
@@ -890,36 +894,36 @@ sub make_assignment_table {
 				$num_seqs_with_hits++;
 				my $num_hits = scalar @Hits;
 				
-				# Handle the previous set of Hits
+				# Handle the previous set of Hits (to $prev_id)
 				if ($num_hits) {
 					
 					# Assign sequence to its unique barcode hit
 					if ($num_hits == 1) {
-						$assignments_table->{$Hit->pattern}{$seq_id} = [ $Hit ];
+						$assignments_table->{$Hits[0]->pattern}{$prev_id} = \@Hits;
 						
 					# Otherwise, check if this sequence has multiple barcode hits
 					} else {
 						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(\@Hits);
 						if ($is_multicoded) {
-							$multibarcode_table->{$seq_id} = $Hits_Sorted;
+							$multibarcode_table->{$prev_id} = $Hits_Sorted;
 						
 						# Assign the sorted hits
 						} else {
-							$assignments_table->{$Hits[0]->pattern}{$curr_id} = $Hits_Sorted;
+							$assignments_table->{$Hits[0]->pattern}{$prev_id} = $Hits_Sorted;
 						}
 					}
 				}
 				
 				# Start a list of hits for this new sequence
 				@Hits = ($Hit);
-				$curr_id = $seq_id;
+				$prev_id = $seq_id;
 			}
 		
 		# Start a list of hits for this new sequence
 		} else {
 			$num_seqs_with_hits++;
 			@Hits = ($Hit);
-			$curr_id = $seq_id;
+			$prev_id = $seq_id;
 		}
 	}
 	
