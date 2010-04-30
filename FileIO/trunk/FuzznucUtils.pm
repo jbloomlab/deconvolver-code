@@ -28,7 +28,10 @@ sub hit_iterator {
 			chomp;
 			next if $_ =~ /^SeqName/; # skip headers
 			
-			my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
+			# my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
+			my ($seq_id, $start, $end, $length, $strand, @barcode_desc) = split /\t/, $_;
+			my $pattern = shift @barcode_desc;
+			my $num_mismatches = pop @barcode_desc;
 			$num_mismatches = 0 if $num_mismatches eq ".";
 			# Use min, max, space-based coordinates
 			my ($min, $max) = ($start < $end) ? ($start, $end) : ($end, $start);
@@ -96,7 +99,10 @@ sub hit_pump_iterator {
 			chomp;
 			next if $_ =~ /^SeqName/; # skip headers
 			
-			my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
+			# my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
+			my ($seq_id, $start, $end, $length, $strand, @barcode_desc) = split /\t/, $_;
+			my $pattern = shift @barcode_desc;
+			my $num_mismatches = pop @barcode_desc;
 			$num_mismatches = 0 if $num_mismatches eq ".";
 			# Use min, max, space-based coordinates
 			my ($min, $max) = ($start < $end) ? ($start, $end) : ($end, $start);
