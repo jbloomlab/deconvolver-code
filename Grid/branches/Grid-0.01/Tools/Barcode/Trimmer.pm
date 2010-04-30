@@ -107,12 +107,26 @@ sub trim_clear_range {
 		
 	}
 	
+	# Let's provide an explanation for our being unable to trim off these barcodes
+	my $reason;
+	if (!defined $start) {
+		if ($num_hits > 3) {
+			$reason = "TOO_MANY_HITS [$num_hits]";
+		} else {
+			my @hits = sort { $a->{min} <=> $b->{min} } @$hits;
+			my @orientations;
+			push @orientations, $_->strand foreach @hits;
+			my $orientation = join(",", @orientations);
+			$reason = "MISORIENTED_BARCODES [$orientation]";
+		}
+	}
+	
 	# Make sure we don't try to capture beyond the ends of the seuqence
 	my $seqlen = length($seq);
 	$start = 0 if defined $start && $start < 0; 
 	$end = $seqlen if !defined $end || $end > $seqlen;
 	
-	return ($start, $end);
+	return ($start, $end, $reason);
 }
 
 
