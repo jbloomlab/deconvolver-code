@@ -205,6 +205,8 @@ sub fuzznuc {
 =cut
 sub print_runtime_settings {
 	my $self = shift;
+	my $key = (defined $self->key) ? $self->key : " ";
+	my $mismatches = (defined $self->mismatches) ? $self->mismatches : " ";
 	return join("\n",
 			"# ============================================================",
 			"# Program: $0",
@@ -213,15 +215,14 @@ sub print_runtime_settings {
 			"#\t-infile $$self{infile}",
 			"#\t-pattern $$self{pattern}",
 			"#\t-informat $$self{informat}",
-			"#\t-mismatches $$self{mismatches}",
+			"#\t-mismatches $mismatches",
 			"#\t-readlength ".$self->readlength,
 			"#\t-clamplength ".$self->clamplength,
-			"#\t-key $$self{key}",
+			"#\t-key $key",
 			"#\t-trim_points_only $$self{trim_points_only}",
 			"#\t-tmpdir $$self{tmpdir}",
 			"#\t-outdir $$self{outdir}",
 			"#\t-outformat $$self{outformat}",
-			"#\t-grid ".ref($$self{grid}),
 			"#\t-informat $$self{informat}",
 			"#\t-outformat $$self{outformat}",
 			"# ============================================================\n"
@@ -599,7 +600,6 @@ sub write_temp_fasta_files {
 		unless ($self->trim_points_only) {
 			# (3) convert to fasta qualities file
 			print STDERR "Writing fasta qualities from sff file\n" if $self->verbose;
-			my $sc_fasta_quals = "sffinfo -q $sff_file > $quals_file";
 			my $sc_fasta_quals = ($self->key) 
 						? "sffinfo -notrim -q $sff_file > $quals_file"
 						: "sffinfo -q $sff_file > $quals_file";
@@ -878,15 +878,15 @@ sub make_assignment_table {
 	my $multibarcode_table;
 	
 	# Iterate through our hits, which we assume are sorted by sequence
-	my ($curr_id, @Hits, $num_seqs_with_hits);
+	my ($prev_id, @Hits, $num_seqs_with_hits);
 	while (my $Hit = $Hit_Iterator->()) {
 		
 		my $seq_id = $Hit->seq_id;
 		
-		if ($curr_id) {
+		if ($prev_id) {
 			
 			# Build a list of hits for this sequence
-			if ($curr_id eq $seq_id) {
+			if ($prev_id eq $seq_id) {
 				push @Hits, $Hit;
 				
 			# Reached a new sequence
@@ -894,36 +894,36 @@ sub make_assignment_table {
 				$num_seqs_with_hits++;
 				my $num_hits = scalar @Hits;
 				
-				# Handle the previous set of Hits (to $curr_id)
+				# Handle the previous set of Hits (to $prev_id)
 				if ($num_hits) {
 					
 					# Assign sequence to its unique barcode hit
 					if ($num_hits == 1) {
-						$assignments_table->{$Hits[0]->pattern}{$curr_id} = \@Hits;
+						$assignments_table->{$Hits[0]->pattern}{$prev_id} = \@Hits;
 						
 					# Otherwise, check if this sequence has multiple barcode hits
 					} else {
 						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(\@Hits);
 						if ($is_multicoded) {
-							$multibarcode_table->{$curr_id} = $Hits_Sorted;
+							$multibarcode_table->{$prev_id} = $Hits_Sorted;
 						
 						# Assign the sorted hits
 						} else {
-							$assignments_table->{$Hits[0]->pattern}{$curr_id} = $Hits_Sorted;
+							$assignments_table->{$Hits[0]->pattern}{$prev_id} = $Hits_Sorted;
 						}
 					}
 				}
 				
 				# Start a list of hits for this new sequence
 				@Hits = ($Hit);
-				$curr_id = $seq_id;
+				$prev_id = $seq_id;
 			}
 		
 		# Start a list of hits for this new sequence
 		} else {
 			$num_seqs_with_hits++;
 			@Hits = ($Hit);
-			$curr_id = $seq_id;
+			$prev_id = $seq_id;
 		}
 	}
 	
@@ -976,6 +976,10 @@ sub write_barcode_fasta {
 	# Trim our sequences, and write the trim logfile
 	print STDERR "Writing barcode reports\n";
 	
+	# Create a file of untrimmable reads
+	my $untrimmed_file = "$outdir/report_untrimmable.log";
+	open(FH_UNTRIMMED, "> $untrimmed_file") || die "Could not open file $untrimmed_file for writing.\n";
+	
 	# Record the distribution of barcodes across our sequences (num_reads, num_bp per barcode)
 	my $barcode_distr_table = $self->barcode_distr_table;
 	
@@ -1019,14 +1023,20 @@ sub write_barcode_fasta {
 			my $seq = $F->seq; # untrimmed sequence
 	
 			# Get the clear range of our sequence (extracts barcode and clamp)
-			my ($clear_start, $clear_end) = Grid::Tools::Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
+			my ($clear_start, $clear_end, $reason) = Grid::Tools::Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
 			
-			# Throw out this read if we can't defined where the clear range start begins
-			next unless defined $clear_start;
+			# Log the reason for throwing out this read if we can't define where the clear range start begins
+			if (!defined $clear_start) {
+				print FH_UNTRIMMED "$seq_id $reason\n";
+				next;
+			}
 			
 			# Throw out the read if it does not fulfill our minimum length requirements
 			my $clear_seqlen = $clear_end - $clear_start;
-			next if $self->readlength && $clear_seqlen < $self->readlength;
+			if ($self->readlength && $clear_seqlen < $self->readlength) {
+				print FH_UNTRIMMED "$seq_id BELOW_MIN_LENGTH $clear_seqlen\n";
+				next;
+			}
 			
 			# Report the distribution of barcodes across sequences
 			$barcode_distr_table->{$barcode_id}{num_seqs}++;
