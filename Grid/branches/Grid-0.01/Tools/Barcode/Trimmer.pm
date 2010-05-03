@@ -41,6 +41,7 @@ sub trim_clear_range {
 	
 	# Define our trim points
 	my ($start, $end);
+	my $seqlen = length($seq);
 	
 	my $num_hits = scalar @$hits;
 	if ($num_hits == 1) {
@@ -56,6 +57,7 @@ sub trim_clear_range {
 		# ---Barcode---Clamp==================================================
 		} else {
 			$start = $hit->max + $clamp_length;
+			$end = $seqlen;
 		}
 		
 	
@@ -76,6 +78,7 @@ sub trim_clear_range {
 		# ---Barcode---Clamp==========---Barcode---Clamp======================
 		} elsif ($hit1->strand eq "+" && $hit2->strand eq "+") {
 			$start = $hit2->max + $clamp_length;
+			$end = $seqlen;
 		
 		# this is odd, but...
 		# [******************]
@@ -119,12 +122,20 @@ sub trim_clear_range {
 			my $orientation = join(",", @orientations);
 			$reason = "MISORIENTED_BARCODES [$orientation]";
 		}
+	} else {
+		# Make sure we don't try to capture beyond the ends of the sequence
+		$start = 0 if $start < 0; 
+		$end = $seqlen if !defined $end || $end > $seqlen;
+		
+		if ($end < $start) {
+			my @hits = sort { $a->{min} <=> $b->{min} } @$hits;
+			my @locs;
+			push @locs, $_->min."..".$_->max.":".$_->strand foreach @hits;
+			my $loc_info = join(",", @locs);
+			$reason = "OVERLAPPING_BARCODES [$loc_info] $start..$end";
+			$start = undef; # unable to provide trimmed sequence
+		}
 	}
-	
-	# Make sure we don't try to capture beyond the ends of the seuqence
-	my $seqlen = length($seq);
-	$start = 0 if defined $start && $start < 0; 
-	$end = $seqlen if !defined $end || $end > $seqlen;
 	
 	return ($start, $end, $reason);
 }
