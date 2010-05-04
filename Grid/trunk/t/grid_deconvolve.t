@@ -5,7 +5,7 @@ use FindBin qw($Bin);
 use lib "$Bin/../../";
 use Grid::SGE;
 use Grid::Tools::Barcode::Deconvolver;
-use Test::More tests => 4;
+use Test::More tests => 8;
 
 # Get the user
 my $user=`whoami`; chomp $user;
