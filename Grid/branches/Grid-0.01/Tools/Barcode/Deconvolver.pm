@@ -1099,14 +1099,16 @@ sub write_barcode_fasta {
 			# Produce a list of sequence ids to trim (-i $seqid_file)
 			my $seqid_file = "$barcodedir/$barcode_id.ids";
 			my $sc_seqidfile = "cut -f 1 $trim_file > $seqid_file";
-			my $status_code = system($sc_seqidfile);
+			`$sc_seqidfile`; my $status_code = $?;
+			#my $status_code = system($sc_seqidfile);
 			print STDERR "Error: Failed system call to write seqid file with status code $status_code\n"
 				if $status_code;			
 			
 			# Write the trimmed sff files using our trim file and sff file (-t $barcode_fasta_file $sff_file)
 			my $sc_sff = "sfffile -o $trim_sff_file -i $seqid_file -t $trim_file $sff_file";
 			print STDERR "Writing trimmed sff...\n$sc_sff\n" if $self->verbose;
-			$status_code = system($sc_sff);
+			`$sc_sff`; $status_code = $?;
+			#$status_code = system($sc_sff);
 			print STDERR "Error: sfffile returns with status code $status_code while generating trimmed sff for barcode $barcode_id\n$sc_sff\n"
 				if $status_code;
 		}
