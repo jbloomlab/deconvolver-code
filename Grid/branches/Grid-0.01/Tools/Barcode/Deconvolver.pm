@@ -1021,7 +1021,7 @@ sub write_barcode_fasta {
 			die "Bug: No sequence in fasta table for id: $seq_id\n" unless defined $fasta_table->{$seq_id};
 			my $F = $fasta_table->{$seq_id};
 			my $seq = $F->seq; # untrimmed sequence
-	
+			
 			# Get the clear range of our sequence (extracts barcode and clamp)
 			my ($clear_start, $clear_end, $reason) = Grid::Tools::Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
 			

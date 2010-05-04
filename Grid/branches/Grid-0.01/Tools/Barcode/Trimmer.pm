@@ -132,7 +132,7 @@ sub trim_clear_range {
 			my @locs;
 			push @locs, $_->min."..".$_->max.":".$_->strand foreach @hits;
 			my $loc_info = join(",", @locs);
-			$reason = "OVERLAPPING_BARCODES [$loc_info] $start..$end";
+			$reason = "NO_TRIMMED_SEQUENCE [$loc_info]";
 			$start = undef; # unable to provide trimmed sequence
 		}
 	}
