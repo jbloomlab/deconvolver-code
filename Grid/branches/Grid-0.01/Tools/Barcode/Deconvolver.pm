@@ -159,7 +159,7 @@ sub validate_parameters {
 	
 	# Verify that the key sequence is provided only for sff input files
 	$error_mssg.= "Error: Providing a key sequence is only compatible with sff input files.\n"
-		if defined $self->key && $self->informat ne "sff";
+		if $self->key && $self->informat ne "sff";
 		
 	return $error_mssg;
 }
