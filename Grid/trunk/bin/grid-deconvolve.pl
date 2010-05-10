@@ -34,42 +34,37 @@ use Time::HiRes qw(gettimeofday);
 		--help 
 	 ]
 
+EXAMPLE
+
+	grid-deconvolve.pl -P 810001 --infile /usr/local/devel/VIRIFX/Grid/t/data/FTF2AAH01.sff --pattern /usr/local/devel/VIRIFX/Grid/t/data/barcodes.pat -o /usr/local/scratch/naxelrod/out -t /usr/local/scratch/naxelrod/tmp -e /usr/local/scratch/naxelrod/err
+
 =head1 SYNOPSIS
 	
-	# Get our SGE object based on options
 	my $grid = new Grid::SGE({
-				project 	=> 810001,
+				project => 810001,
 				queue	=> "fast.q",
-				name		=> "gridDeconvolve",
+				name	=> "gridDeconvolve",
 				tmpdir	=> $tmpdir,
 				errdir	=> $errdir,
 				outdir	=> $outdir,
 				verbose	=> 1,
 				poll_delay => 30,
 	});
-	
-	# Get our Grid::Tools::Barcode::Deconvolver object
 	my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
-				grid		=> $grid,
+				grid	=> $grid,
 				pattern	=> $pattern,
 				infile	=> $fasta,
 				tmpdir	=> $tmpdir,
 				errdir	=> $errdir,
 				outdir	=> $outdir,
 				verbose	=> 1,
-				options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
+				options => "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
 	});
-	
-	# Run the deconvolution pipeline
+
 	my $num_assignments = $Deconvolver->run();
-	
-	# Test if there are any job failures
+
 	print $grid->failed_tasks_report() if $grid->failed_tasks;
 	
-EXAMPLE
-
-	grid-deconvolve.pl -P 810001 --infile /usr/local/devel/VIRIFX/Grid/t/data/FTF2AAH01.sff --pattern /usr/local/devel/VIRIFX/Grid/t/data/barcodes.pat -o /usr/local/scratch/naxelrod/out -t /usr/local/scratch/naxelrod/tmp -e /usr/local/scratch/naxelrod/err
-
 =head1 OPTIONS
 
 B<--project,-p>
@@ -139,15 +134,14 @@ B<--help,-h>
 	The results are a report of trim points, and a list of barcode fasta files with 
 	each entry representing a read sequence that has its unambiguous best hit to 
 	the bar code.  The bar code sequences are trimmed by default, unless otherwise 
-	specified.  
-	
-	All results are in space-based coordinates.
-	
+	specified.
+
 	The rules for trimming reads:
-	1) If barcode hits overlap, extend the hit and trim the extended region;
-	2) Allow any number of hits, as long as the trimmed read length >= $MIN_READ_LENGTH
-	3) Throw out and log any sequences with hits to multiple barcodes
-	
+		1) If barcode hits overlap, extend the hit and trim the extended region;
+		2) Allow any number of hits, as long as the trimmed read length >= $MIN_READ_LENGTH
+		3) Throw out and log any sequences with hits to multiple barcodes
+
+	All results are in space-based coordinates.
 
 =head1  CONTACT
 	
