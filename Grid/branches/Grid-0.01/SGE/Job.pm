@@ -59,6 +59,10 @@ sub elapsed_time {
 	my (undef, $mon1, $day1, $time1, $yr1) = split /\s+/, $J->start_time;
 	my (undef, $mon2, $day2, $time2, $yr2) = split /\s+/, $J->end_time;
 	
+	if (!defined $time1 || !defined $time2) {
+		return "Unknown";
+	}
+	
 	# Calculate the time interval between end and start time
 	my ($hr1, $min1, $sec1) = split /:/, $time1;
 	my ($hr2, $min2, $sec2) = split /:/, $time2;

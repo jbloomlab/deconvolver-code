@@ -31,7 +31,6 @@ my $CLEANUP 		= 1;						# Boolean value to determine whether we should
 
 Grid::Tools::Barcode::Deconvolver->mk_accessors(qw( 
 	grid
-	fuzznucs
 	infile
 	informat
 	sequence_file
