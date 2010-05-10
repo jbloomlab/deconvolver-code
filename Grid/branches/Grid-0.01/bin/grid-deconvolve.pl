@@ -14,40 +14,6 @@ use Time::HiRes qw(gettimeofday);
 				deconvolution pipeline using Sun Grid Engine,
 				or optionally without the grid.
 	
-=head1 SYNOPSIS
-	
-	# Get our SGE object based on options
-	my $grid = new Grid::SGE({
-				project 	=> 810001,
-				queue	=> "fast.q",
-				name		=> "gridDeconvolve",
-				tmpdir	=> $tmpdir,
-				errdir	=> $errdir,
-				outdir	=> $outdir,
-				verbose	=> 1,
-				poll_delay => 30,
-	});
-	
-	# Get our Grid::Tools::Barcode::Deconvolver object
-	# Test (1a): Using options stringified
-	my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
-				grid		=> $grid,
-				pattern	=> $pattern,
-				infile	=> $fasta,
-				tmpdir	=> $tmpdir,
-				errdir	=> $errdir,
-				outdir	=> $outdir,
-				verbose	=> 1,
-				options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
-	});
-	
-	# Run the deconvolution pipeline
-	# returns the number of sequence-barcode assignments
-	my $num_assignments = $Deconvolver->run();
-	
-	# Test if there are any job failures
-	print $grid->failed_tasks_report() if $grid->failed_tasks;
-	
 =head1 USAGE
 	
 	grid-deconvolve.pl 
@@ -72,6 +38,33 @@ EXAMPLE
 
 	grid-deconvolve.pl -P 810001 --infile /usr/local/devel/VIRIFX/Grid/t/data/FTF2AAH01.sff --pattern /usr/local/devel/VIRIFX/Grid/t/data/barcodes.pat -o /usr/local/scratch/naxelrod/out -t /usr/local/scratch/naxelrod/tmp -e /usr/local/scratch/naxelrod/err
 
+=head1 SYNOPSIS
+	
+	my $grid = new Grid::SGE({
+				project => 810001,
+				queue	=> "fast.q",
+				name	=> "gridDeconvolve",
+				tmpdir	=> $tmpdir,
+				errdir	=> $errdir,
+				outdir	=> $outdir,
+				verbose	=> 1,
+				poll_delay => 30,
+	});
+	my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
+				grid	=> $grid,
+				pattern	=> $pattern,
+				infile	=> $fasta,
+				tmpdir	=> $tmpdir,
+				errdir	=> $errdir,
+				outdir	=> $outdir,
+				verbose	=> 1,
+				options => "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
+	});
+
+	my $num_assignments = $Deconvolver->run();
+
+	print $grid->failed_tasks_report() if $grid->failed_tasks;
+	
 =head1 OPTIONS
 
 B<--project,-p>
@@ -83,6 +76,18 @@ B<--name,-n>
 B<--queue,-q>
 	OPTIONAL.  qsub destination queue.
 
+B<--pattern,-b>
+	REQUIRED. Path to barcode pattern file
+
+B<--infile,-f>
+	REQUIRED.  Path to read sequence fasta, fastq, or sff file.
+
+B<--outdir,-o>
+	OPTIONAL.  Path to output directory.  Directory will be created if not found.
+
+B<--mismatches,-m>
+	OPTIONAL.  Number of mismatches to allow in running fuzznuc searches.
+
 B<--mailto>
 	OPTIONAL.  Email address to send job status notifications.
 
@@ -93,18 +98,6 @@ B<--mailon>
 	# b		 mail is sent when the job begins execution. 
 	# e		 mail is sent when the job terminates. 
 	
-B<--pattern,-b>
-	REQUIRED. Path to barcode pattern file
-
-B<--infile,-f>
-	REQUIRED.  Path to read sequence fasta, fastq, or sff file.
-
-B<--output,-o>
-	OPTIONAL.  Path to output directory.  Directory will be created if not found.
-
-B<--mismatches,-m>
-	OPTIONAL.  Number of mismatches to allow in running fuzznuc searches.
-
 B<--readlength,-l>
 	OPTIONAL.  Minimal acceptable read length after barcode trimming is complete.
 
@@ -121,7 +114,7 @@ B<--key,-k>
 B<--trim-points-only>
 	OPTIONAL.  Boolean parameter to output only the trim points file for the 
 			 sequences for each barcode.
-				 
+
 B<--num_seqs>
 	OPTIONAL.  Integer parameter to specify the number of sequences per fasta 
 			 file for splitting and distributing the Fuzznuc searches.
@@ -141,15 +134,14 @@ B<--help,-h>
 	The results are a report of trim points, and a list of barcode fasta files with 
 	each entry representing a read sequence that has its unambiguous best hit to 
 	the bar code.  The bar code sequences are trimmed by default, unless otherwise 
-	specified.  
-	
-	All results are in space-based coordinates.
-	
+	specified.
+
 	The rules for trimming reads:
-	1) If barcode hits overlap, extend the hit and trim the extended region;
-	2) Allow any number of hits, as long as the trimmed read length >= $MIN_READ_LENGTH
-	3) Throw out and log any sequences with hits to multiple barcodes
-	
+		1) If barcode hits overlap, extend the hit and trim the extended region;
+		2) Allow any number of hits, as long as the trimmed read length >= $MIN_READ_LENGTH
+		3) Throw out and log any sequences with hits to multiple barcodes
+
+	All results are in space-based coordinates.
 
 =head1  CONTACT
 	
