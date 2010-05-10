@@ -101,7 +101,6 @@ sub init {
 sub set_defaults {
 	my $self = shift;
 	my $cwd = cwd();
-	$self->key("") unless defined $self->key;
 	$self->clamplength($CLAMP_LENGTH) unless defined $self->clamplength;
 	$self->readlength($MIN_READ_LENGTH) unless defined $self->readlength;
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
@@ -159,7 +158,7 @@ sub validate_parameters {
 	
 	# Verify that the key sequence is provided only for sff input files
 	$error_mssg.= "Error: Providing a key sequence is only compatible with sff input files.\n"
-		if $self->key && $self->informat ne "sff";
+		if defined $self->key && $self->informat ne "sff";
 		
 	return $error_mssg;
 }
