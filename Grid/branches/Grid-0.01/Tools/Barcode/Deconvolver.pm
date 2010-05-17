@@ -100,8 +100,15 @@ sub init {
 sub set_defaults {
 	my $self = shift;
 	my $cwd = cwd();
-	$self->clamplength($CLAMP_LENGTH) unless defined $self->clamplength;
-	$self->readlength($MIN_READ_LENGTH) unless defined $self->readlength;
+	
+	# Set our options hash for these variables
+	my $clamplength = (defined $self->{clamplength}) ? $self->{clamplength} : $CLAMP_LENGTH;
+	my $readlength = (defined $self->{readlength}) ? $self->{readlength} : $MIN_READ_LENGTH;
+	delete $self->{clamplength};
+	delete $self->{readlength};
+	$self->clamplength($clamplength);
+	$self->readlength($readlength);
+	
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
 	$self->tmpdir($TMP_DIR) unless defined $self->tmpdir;
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
@@ -242,7 +249,8 @@ sub print_runtime_settings {
 =cut
 
 sub readlength {
-	return shift->_options('readlength', @_);
+	my $self = shift;
+	return $self->_options('readlength', @_);
 }
 
 =head2 clamplength()
@@ -250,12 +258,6 @@ sub readlength {
 =cut
 sub clamplength {
 	return shift->_options('clamplength', @_);
-}
-=head2 keylength()
-	Same approach as readlength
-=cut
-sub keylength {
-	return shift->_options('keylength', @_);
 }
 
 =head2 _options()
@@ -269,7 +271,7 @@ sub _options {
 	my ($self, $attribute, $option, $value) = @_;
 	
 	# This is only used to manage barcode-specific readlength and clamplength values
-	if ($attribute !~ /readlength|clamplength|keylength/) {
+	if ($attribute !~ /readlength|clamplength/) {
 		die "Error: unexepected use of the _options function for attribute $attribute\n";
 	}
 	
