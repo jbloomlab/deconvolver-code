@@ -31,7 +31,6 @@ my $CLEANUP 		= 1;						# Boolean value to determine whether we should
 
 Grid::Tools::Barcode::Deconvolver->mk_accessors(qw( 
 	grid
-	fuzznucs
 	infile
 	informat
 	sequence_file
@@ -101,8 +100,15 @@ sub init {
 sub set_defaults {
 	my $self = shift;
 	my $cwd = cwd();
-	$self->clamplength($CLAMP_LENGTH) unless defined $self->clamplength;
-	$self->readlength($MIN_READ_LENGTH) unless defined $self->readlength;
+
+	# Set our options hash for these variables
+	my $clamplength = (defined $self->{clamplength}) ? $self->{clamplength} : $CLAMP_LENGTH;
+	my $readlength = (defined $self->{readlength}) ? $self->{readlength} : $MIN_READ_LENGTH;
+	delete $self->{clamplength};
+	delete $self->{readlength};
+	$self->clamplength($clamplength);
+	$self->readlength($readlength);
+
 	$self->outdir($OUT_DIR) unless defined $self->outdir;
 	$self->tmpdir($TMP_DIR) unless defined $self->tmpdir;
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
@@ -270,7 +276,7 @@ sub _options {
 	my ($self, $attribute, $option, $value) = @_;
 	
 	# This is only used to manage barcode-specific readlength and clamplength values
-	if ($attribute !~ /readlength|clamplength|keylength/) {
+	if ($attribute !~ /readlength|clamplength/) {
 		die "Error: unexepected use of the _options function for attribute $attribute\n";
 	}
 	
