@@ -428,7 +428,11 @@ sub cleanup_files {
 	
 	# Get dirs and job info
 	my ($outdir, $tmpdir) = ($grid->outdir, $grid->tmpdir, $grid->errdir);
-	my ($guid, $job_id, $job_name, $user) = ($grid->guid, $grid->job_id, $grid->name, $grid->user);
+	my ($guid, $job_id, $user) = ($grid->guid, $grid->job_id, $grid->user);
+
+	# Get the generic name for each of the job tasks
+	my $Jobs = $grid->job_tasks;
+	my $job_name = $Jobs->[0]->name if defined $Jobs->[0];
 	
 	# remove outdir/gridDeconvolve.o* files
 	`rm -f $outdir/$job_name.o*` if $job_name;
