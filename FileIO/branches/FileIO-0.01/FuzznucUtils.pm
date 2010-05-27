@@ -16,7 +16,7 @@ sub hit_iterator {
 	my ($self, $files, $verbose) = @_;
 	
 	# Open the first file for reading
-	my $file = shift @$files;
+	my $file = shift @$files; 
 	my $fh = IO::File->new($file) || die "Could not open fuzznuc results file $file.\n";
 	
 	my ($Hit_Iterator, $i, $done);
@@ -31,6 +31,9 @@ sub hit_iterator {
 			# my ($seq_id, $start, $end, $length, $strand, $pattern, $num_mismatches) = split /\t/, $_;
 			my ($seq_id, $start, $end, $length, $strand, $pattern_line, $num_mismatches) = split /\t/, $_;
 			my ($pattern) = split /\s+/, $pattern_line;
+			if (!$pattern) {
+				die "Unable to parse pattern on line $_\n";
+			}
 			
 			$num_mismatches = 0 if $num_mismatches eq ".";
 			# Use min, max, space-based coordinates
