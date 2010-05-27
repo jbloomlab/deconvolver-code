@@ -801,7 +801,7 @@ sub print_log_report {
 		"# Sequences with barcode hits: $num_seqs_with_hits ($perc_seqs_with_hits\%)",
 		"# Sequences with multiple barcodes: $num_multicoded_seqs ($perc_multicoded_seqs\%)",
 		"# Sequences successfully deconvolved: $num_seqs_deconvolved ($perc_seqs_deconvolved\%)",
-		"# Sequences successfully validated: $num_seqs_validated of $num_seqs_deconvolved ($perc_seqs_validated\%)",
+		# "# Sequences successfully validated: $num_seqs_validated of $num_seqs_deconvolved ($perc_seqs_validated\%)",
 	), "\n";
 	
 	# Sort our barcodes by the number of sequences in descending order
