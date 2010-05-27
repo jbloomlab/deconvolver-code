@@ -1002,7 +1002,6 @@ sub write_barcode_fasta {
 	# Record the distribution of barcodes across our sequences (num_reads, num_bp per barcode)
 	my $barcode_distr_table = $self->barcode_distr_table;
 	
-	my $num_seqs_deconvolved=0;
 	foreach my $barcode_id (sort keys %$assignments_table) {
 		
 		# Put all of our trim files in this directory
@@ -1135,7 +1134,7 @@ sub write_barcode_fasta {
 
 	}
 	
-	my $num_seqs_deconvolved = $barcode_distr_table->{$barcode_id}{num_seqs};
+	my $num_seqs_deconvolved = $barcode_distr_table->{total}{seqs};
 	return $num_seqs_deconvolved;
 }
 
