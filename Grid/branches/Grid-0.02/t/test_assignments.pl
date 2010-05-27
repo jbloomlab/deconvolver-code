@@ -25,16 +25,14 @@ foreach my $fuzznuc_file (@entries) {
 die "No fuzznuc search results were found in $outdir\n" unless scalar keys %seqs;
 
 # Read in results and validate the assignments
-my $num_invalid = 0;
+my $num_invalid = 0; my $num_valid = 0;
 foreach my $barcode_dir (@entries) {
 	if (-d "$outdir/$barcode_dir") {
 		next if $barcode_dir eq "." || $barcode_dir eq "..";
 		opendir (BARCODE_DIR, "$outdir/$barcode_dir") || die "Could not open barcode directory $outdir/$barcode_dir\n";
-		#print "Barcode directory $outdir/$barcode_dir\n";
 		my @trim_files = readdir(BARCODE_DIR);
 		foreach my $trim_file (@trim_files) {
 			if ($trim_file =~ /\.trim/) {
-				#print "Trim file $trim_file\n";
 				open (ASSIGNMENTS, "< $outdir/$barcode_dir/$trim_file" ) || die "Could not open trim file $outdir/$barcode_dir/$trim_file\n";
 				
 				# get barcode from the name of the file
@@ -44,9 +42,13 @@ foreach my $barcode_dir (@entries) {
 				while (<ASSIGNMENTS>) {
 					chomp;
 					my ($seq_id) = split /\s+/, $_;
-					if (!exists $seqs{$barcode}{$seq_id}) {
-						$num_invalid++;
-						print "$seq_id $barcode\n";
+					if ($seq_id) {
+						if (!exists $seqs{$barcode}{$seq_id}) {
+							$num_invalid++;
+							print "$seq_id $barcode\n";
+						} else {
+							$num_valid++;
+						}
 					}
 				}
 				close ASSIGNMENTS;
@@ -57,15 +59,15 @@ foreach my $barcode_dir (@entries) {
 }
 
 my $num_barcodes = scalar keys %seqs;
-
 my $num_seqs = 0;
 foreach my $barcode( keys %seqs ) {
 	my $num_barcode_seqs = scalar keys %{ $seqs{$barcode} };
 	$num_seqs += $num_barcode_seqs;
 	print "# barcode $barcode $num_barcode_seqs\n";
 }
-print "Total barcodes: $num_barcodes\n";
+print "Number of barcodes with assigned reads: $num_barcodes\n";
 print "Total sequences: $num_seqs\n";
+print "Total valid assignments: $num_valid\n";
 print "Total invalid assignments: $num_invalid\n";
 
 close OUTDIR;

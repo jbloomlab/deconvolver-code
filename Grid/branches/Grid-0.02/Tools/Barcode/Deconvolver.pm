@@ -56,7 +56,7 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	guid
 	num_barcodes
 	num_seqs_with_hits
-	num_seqs_deconvolved
+	num_seqs_validated
 	cleanup
 	logfilehandle
 ));
@@ -472,6 +472,9 @@ sub deconvolve {
 	# Writes barcode fasta files
 	$self->write_barcode_fasta;
 	
+	# Sanity check the results
+	$self->validate_results;
+	
 	# print our log report on completion
 	$self->print_log_report;
 	
@@ -775,15 +778,21 @@ sub print_log_report {
 	# Log to stdout unless a log filehandle is defined
 	my $logfh = $self->logfilehandle || *STDOUT;
 	
+	# Get our hash table of barcode-sequence distribution
+	my $barcode_distr_table = $self->barcode_distr_table;
+	my ($num_seqs_deconvolved, $deconvolved_bp) = ($barcode_distr_table->{total}{seqs}, $barcode_distr_table->{total}{bp});
+	delete $barcode_distr_table->{total};
+
 	# Header with basic stats on our search results
 	my $multibarcode_table = $self->multibarcode_table;
 	my $num_seqs = ($self->fasta_table) ? scalar keys %{ $self->fasta_table } : 0;
 	my $num_barcodes = $self->num_barcodes;
 	my $num_seqs_with_hits = $self->num_seqs_with_hits || 0;
-	my $num_seqs_deconvolved = $self->num_seqs_deconvolved || 0;
+	my $num_seqs_validated = $self->num_seqs_validated || 0;
 	my $num_multicoded_seqs = ($multibarcode_table) ? scalar keys %{ $multibarcode_table } : 0;
 	my $perc_seqs_with_hits = ($num_seqs) ? sprintf("%.2f", (($num_seqs_with_hits/$num_seqs)*100)) : "0.0";
-	my $perc_seqs_deconvolved = ($num_seqs) ? sprintf("%.2f", (($num_seqs_deconvolved/$num_seqs)*100)) : "0.0";
+	my $perc_seqs_deconvolved = ($num_seqs) ? sprintf("%.2f", (($num_seqs_deconvolved/$num_seqs)*100)) : "0.0"; 
+	my $perc_seqs_validated = ($num_seqs) ? sprintf("%.2f", (($num_seqs_validated/$num_seqs_deconvolved)*100)) : "0.0";
 	my $perc_multicoded_seqs = ($num_seqs) ? sprintf("%.2f", (($num_multicoded_seqs/$num_seqs)*100)) : "0.0";
 	
 	print $logfh join("\n",
@@ -792,20 +801,16 @@ sub print_log_report {
 		"# Sequences with barcode hits: $num_seqs_with_hits ($perc_seqs_with_hits\%)",
 		"# Sequences with multiple barcodes: $num_multicoded_seqs ($perc_multicoded_seqs\%)",
 		"# Sequences successfully deconvolved: $num_seqs_deconvolved ($perc_seqs_deconvolved\%)",
+		"# Sequences successfully validated: $num_seqs_validated of $num_seqs_deconvolved ($perc_seqs_validated\%)",
 	), "\n";
 	
-	# Get our hash table of barcode-sequence distribution
-	my $barcode_distr_table = $self->barcode_distr_table;
-	my ($total_seqs, $total_bp) = ($barcode_distr_table->{total}{seqs}, $barcode_distr_table->{total}{bp});
-	delete $barcode_distr_table->{total};
-
 	# Sort our barcodes by the number of sequences in descending order
 	print $logfh "# Distribution of barcodes: <barcode_id> <num_sequences> <perc_sequences> <num_bp> <percent_bp>\n";
 	for my $barcode_id ( sort { $barcode_distr_table->{$b}{num_seqs} <=> $barcode_distr_table->{$a}{num_seqs} } keys %$barcode_distr_table) {
 		my $num_seqs = $barcode_distr_table->{$barcode_id}{num_seqs};
 		my $num_bp = $barcode_distr_table->{$barcode_id}{num_bp};
-		my $perc_seqs = ($total_seqs) ? sprintf("%.1f", (($num_seqs/$total_seqs)*100)) : "0.0";
-		my $perc_bp = ($total_bp) ? sprintf("%.1f", (($num_bp/$total_bp)*100)) : "0.0";
+		my $perc_seqs = ($num_seqs_deconvolved) ? sprintf("%.1f", (($num_seqs/$num_seqs_deconvolved)*100)) : "0.0";
+		my $perc_bp = ($deconvolved_bp) ? sprintf("%.1f", (($num_bp/$deconvolved_bp)*100)) : "0.0";
 		print join(" ", "barcode", $barcode_id, $num_seqs, $perc_seqs, $num_bp, $perc_bp), "\n";
 	}
 }
@@ -890,10 +895,10 @@ sub make_assignment_table {
 	my $multibarcode_table;
 	
 	# Iterate through our hits, which we assume are sorted by sequence
-	my ($prev_id, @Hits, $num_seqs_with_hits);
+	my ($seq_id, $prev_id, @Hits, $num_hits, $num_seqs_with_hits);
 	while (my $Hit = $Hit_Iterator->()) {
 		
-		my $seq_id = $Hit->seq_id;
+		$seq_id = $Hit->seq_id;
 		
 		if ($prev_id) {
 			
@@ -904,7 +909,7 @@ sub make_assignment_table {
 			# Reached a new sequence
 			} else {
 				$num_seqs_with_hits++;
-				my $num_hits = scalar @Hits;
+				$num_hits = scalar @Hits;
 				
 				# Handle the previous set of Hits (to $prev_id)
 				if ($num_hits) {
@@ -933,11 +938,13 @@ sub make_assignment_table {
 		
 		# Start a list of hits for this new sequence
 		} else {
-			$num_seqs_with_hits++;
+			# $num_seqs_with_hits++;
 			@Hits = ($Hit);
 			$prev_id = $seq_id;
 		}
 	}
+	
+	# Handle the last hit?
 	
 	# Report count of multicoded sequences
 	if ($self->verbose) {
@@ -996,7 +1003,7 @@ sub write_barcode_fasta {
 	my $barcode_distr_table = $self->barcode_distr_table;
 	
 	my $num_seqs_deconvolved=0;
-	foreach my $barcode_id (keys %$assignments_table) {
+	foreach my $barcode_id (sort keys %$assignments_table) {
 		
 		# Put all of our trim files in this directory
 		my $barcodedir = "$outdir/$barcode_id";
@@ -1050,8 +1057,6 @@ sub write_barcode_fasta {
 				print FH_UNTRIMMED "$seq_id BELOW_MIN_LENGTH $clear_seqlen\n";
 				next;
 			}
-			
-			$num_seqs_deconvolved++;
 			
 			# Report the distribution of barcodes across sequences
 			$barcode_distr_table->{$barcode_id}{num_seqs}++;
@@ -1130,9 +1135,82 @@ sub write_barcode_fasta {
 
 	}
 	
-	return $self->num_seqs_deconvolved($num_seqs_deconvolved);
+	my $num_seqs_deconvolved = $barcode_distr_table->{$barcode_id}{num_seqs};
+	return $num_seqs_deconvolved;
 }
 
+=head2 validate_results()
+	
+	Verifies that all sequence-to-barcode assignments have a corresponding
+	hit in the Fuzznuc search output files.
+	
+=cut
+
+sub validate_results {
+	my $self = shift;
+	my $outdir = $self->outdir;
+	print STDERR "Validating results of deconvolution...\n" if $self->verbose;
+	
+	# Read in fuzznuc results and build a table of sequences-barcodes that is unique
+	my %seqs;
+	
+	opendir (OUTDIR, $outdir) || die "Could not open directory $outdir\n";
+	my @entries = readdir(OUTDIR);
+	foreach my $fuzznuc_file (@entries) {
+		if ($fuzznuc_file =~ /^fuzznuc\./) {
+			open (FUZZNUC, "< $outdir/$fuzznuc_file") || die "Could not open file $fuzznuc_file\n";
+			#print "Fuzznuc file $outdir/$fuzznuc_file\n";
+			while (<FUZZNUC>) {
+				chomp;
+				next if $_=~/SeqName/;
+				my ($seq_id, $start, $end, $length, $strand, $barcode, $num_mismatches) = split /\t/, $_;
+				$seqs{$barcode}{$seq_id}++;
+			}
+			close FUZZNUC;
+		}
+	}
+	my $is_fuzznuc_results_found = ( scalar keys %seqs ) ? 1 : 0;
+	print STDERR "Validation of results failed because no fuzznuc results were found in $outdir\n" unless $is_fuzznuc_results_found;	
+	
+	# Read in results and validate the assignments
+	my $num_invalid = 0; my $num_valid = 0;
+	foreach my $barcode_dir (@entries) {
+		if (-d "$outdir/$barcode_dir") {
+			next if $barcode_dir eq "." || $barcode_dir eq "..";
+			opendir (BARCODE_DIR, "$outdir/$barcode_dir") || die "Could not open barcode directory $outdir/$barcode_dir\n";
+			my @trim_files = readdir(BARCODE_DIR);
+			foreach my $trim_file (@trim_files) {
+				if ($trim_file =~ /\.trim/) {
+					open (ASSIGNMENTS, "< $outdir/$barcode_dir/$trim_file" ) || die "Could not open trim file $outdir/$barcode_dir/$trim_file\n";
+					
+					# get barcode from the name of the file
+					my $barcode = $trim_file;
+					$barcode =~ s/\.trim//g;
+					
+					while (<ASSIGNMENTS>) {
+						chomp;
+						my ($seq_id) = split /\s+/, $_;
+						if ($seq_id) {
+							if (!exists $seqs{$barcode}{$seq_id}) {
+								$num_invalid++;
+							} else {
+								$num_valid++;
+							}
+						}
+					}
+					close ASSIGNMENTS;
+				}
+			}
+			close BARCODE_DIR;
+		}
+	}
+	
+	print STDERR "Validation failed with number of invalid assignments: $num_invalid\n" if $num_invalid;
+	$self->num_seqs_validated($num_valid);
+	
+	my $is_success = ($is_fuzznuc_results_found && $num_valid && !$num_invalid) ? 1 : 0;
+	return $is_success;
+}
 
 1;
 __END__
