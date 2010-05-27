@@ -111,7 +111,7 @@ B<--key,-k>
 			 against the untrimmed read sequences to define the appropriate
 			 trim points.  Default is undefined.
 
-B<--trim-points-only>
+B<--trim_points_only>
 	OPTIONAL.  Boolean parameter to output only the trim points file for the 
 			 sequences for each barcode.
 

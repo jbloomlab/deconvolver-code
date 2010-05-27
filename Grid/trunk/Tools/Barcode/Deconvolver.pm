@@ -54,7 +54,9 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	trim_points_only 
 	verbose
 	guid
+	num_barcodes
 	num_seqs_with_hits
+	num_seqs_deconvolved
 	cleanup
 	logfilehandle
 ));
@@ -385,22 +387,18 @@ sub run {
 	# Generate Fasta sequence and quality files
 	$self->write_temp_fasta_files;
 	
-	# Read our barcode file (stores results in $self->barcode_table)
-	# $self->read_pattern_file;
-	
 	# Run Fuzznuc searches, and get an iterator of FileIO::FuzznucHit objects
 	my ($is_success, $iter);
 	if ($grid) {
 		
 		# Run Fuzznuc on the grid
 		$is_success = $self->run_grid_fuzznuc();
-
+		
 		# exit run pipeline if grid submission fails
 		return $is_success if !$is_success;
 		
 		# Get an iterator of FileIO::FuzznucHit objects from our output files
 		$iter = $self->fuzznuc->get_hits_iterator($grid, $self->verbose);
-		# $iter = $self->fuzznuc->get_hits_pump_iterator($grid, $self->verbose);
 		
 	# Otherwise, run a system command
 	} else {
@@ -702,6 +700,9 @@ sub read_pattern_file {
 		}
 	}
      
+	# Store number of barcodes
+	$self->num_barcodes( scalar keys %{ $barcode_table } );
+	
      close IN;
      close OUT if $self->key;
      
@@ -777,17 +778,20 @@ sub print_log_report {
 	# Header with basic stats on our search results
 	my $multibarcode_table = $self->multibarcode_table;
 	my $num_seqs = ($self->fasta_table) ? scalar keys %{ $self->fasta_table } : 0;
-	my $num_barcodes = ($self->barcode_table) ? scalar keys %{ $self->barcode_table } : 0;
+	my $num_barcodes = $self->num_barcodes;
 	my $num_seqs_with_hits = $self->num_seqs_with_hits || 0;
+	my $num_seqs_deconvolved = $self->num_seqs_deconvolved || 0;
 	my $num_multicoded_seqs = ($multibarcode_table) ? scalar keys %{ $multibarcode_table } : 0;
 	my $perc_seqs_with_hits = ($num_seqs) ? sprintf("%.2f", (($num_seqs_with_hits/$num_seqs)*100)) : "0.0";
+	my $perc_seqs_deconvolved = ($num_seqs) ? sprintf("%.2f", (($num_seqs_deconvolved/$num_seqs)*100)) : "0.0";
 	my $perc_multicoded_seqs = ($num_seqs) ? sprintf("%.2f", (($num_multicoded_seqs/$num_seqs)*100)) : "0.0";
 	
 	print $logfh join("\n",
-		"# Number of barcode entries: $num_barcodes",
-		"# Number of fasta entries: $num_seqs",
+		"# Barcodes: $num_barcodes",
+		"# Sequences: $num_seqs",
 		"# Sequences with barcode hits: $num_seqs_with_hits ($perc_seqs_with_hits\%)",
 		"# Sequences with multiple barcodes: $num_multicoded_seqs ($perc_multicoded_seqs\%)",
+		"# Sequences successfully deconvolved: $num_seqs_deconvolved ($perc_seqs_deconvolved\%)",
 	), "\n";
 	
 	# Get our hash table of barcode-sequence distribution
@@ -802,7 +806,7 @@ sub print_log_report {
 		my $num_bp = $barcode_distr_table->{$barcode_id}{num_bp};
 		my $perc_seqs = ($total_seqs) ? sprintf("%.1f", (($num_seqs/$total_seqs)*100)) : "0.0";
 		my $perc_bp = ($total_bp) ? sprintf("%.1f", (($num_bp/$total_bp)*100)) : "0.0";
-		print join(" ", "# barcode", $barcode_id, $num_seqs, $perc_seqs, $num_bp, $perc_bp), "\n";
+		print join(" ", "barcode", $barcode_id, $num_seqs, $perc_seqs, $num_bp, $perc_bp), "\n";
 	}
 }
 
@@ -819,7 +823,6 @@ sub write_multicode_report {
 	# Report each multicoded sequence
 	my $multibarcode_table = $self->multibarcode_table;
 	foreach my $seq_id (keys %$multibarcode_table) {
-		my ($hit1, $hit2) = @{ $multibarcode_table->{$seq_id} };
 		my @hits = @{ $multibarcode_table->{$seq_id} };
 		my $report = "$seq_id\t";
 		foreach my $H (@hits) {
@@ -838,10 +841,10 @@ sub write_multicode_report {
 =cut
 
 sub check_multicoded_hits {
-	my ($self, $Hits) = @_;
+	my ($self, @Hits) = @_;
 	
 	# Sort the hits to a given sequence by number of mismatches
-	my @Hits_sorted = sort { $a->num_mismatches <=> $b->num_mismatches } @$Hits;
+	my @Hits_sorted = sort { $a->num_mismatches <=> $b->num_mismatches } @Hits;
 	
 	# Set the first hit as our best hit
 	my $BestHit = $Hits_sorted[0];
@@ -908,11 +911,11 @@ sub make_assignment_table {
 					
 					# Assign sequence to its unique barcode hit
 					if ($num_hits == 1) {
-						$assignments_table->{$Hits[0]->pattern}{$prev_id} = \@Hits;
+						$assignments_table->{$Hits[0]->pattern}{$prev_id} = [ $Hits[0] ];
 						
 					# Otherwise, check if this sequence has multiple barcode hits
 					} else {
-						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(\@Hits);
+						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(@Hits);
 						if ($is_multicoded) {
 							$multibarcode_table->{$prev_id} = $Hits_Sorted;
 						
@@ -992,6 +995,7 @@ sub write_barcode_fasta {
 	# Record the distribution of barcodes across our sequences (num_reads, num_bp per barcode)
 	my $barcode_distr_table = $self->barcode_distr_table;
 	
+	my $num_seqs_deconvolved=0;
 	foreach my $barcode_id (keys %$assignments_table) {
 		
 		# Put all of our trim files in this directory
@@ -1046,6 +1050,8 @@ sub write_barcode_fasta {
 				print FH_UNTRIMMED "$seq_id BELOW_MIN_LENGTH $clear_seqlen\n";
 				next;
 			}
+			
+			$num_seqs_deconvolved++;
 			
 			# Report the distribution of barcodes across sequences
 			$barcode_distr_table->{$barcode_id}{num_seqs}++;
@@ -1123,7 +1129,8 @@ sub write_barcode_fasta {
 		}
 
 	}
-
+	
+	return $self->num_seqs_deconvolved($num_seqs_deconvolved);
 }
 
 

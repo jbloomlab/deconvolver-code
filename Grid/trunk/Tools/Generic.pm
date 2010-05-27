@@ -147,7 +147,7 @@ sub options {
 	
 	# Set option-value pair, and
 	# returns the value
-	elsif ($option && $value) {
+	elsif ($option && defined $value) {
 		$self->{options}{$option} = $value;
 		return $value;
 	}

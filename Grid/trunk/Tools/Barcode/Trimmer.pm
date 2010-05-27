@@ -114,13 +114,9 @@ sub trim_clear_range {
 	my $reason;
 	if (!defined $start) {
 		if ($num_hits > 3) {
-			$reason = "TOO_MANY_HITS [$num_hits]";
+			$reason = "TOO_MANY_HITS";
 		} else {
-			my @hits = sort { $a->{min} <=> $b->{min} } @$hits;
-			my @orientations;
-			push @orientations, $_->strand foreach @hits;
-			my $orientation = join(",", @orientations);
-			$reason = "MISORIENTED_BARCODES [$orientation]";
+			$reason = "MISORIENTED_BARCODES";
 		}
 	} else {
 		# Make sure we don't try to capture beyond the ends of the sequence
@@ -128,13 +124,17 @@ sub trim_clear_range {
 		$end = $seqlen if !defined $end || $end > $seqlen;
 		
 		if ($end < $start) {
-			my @hits = sort { $a->{min} <=> $b->{min} } @$hits;
-			my @locs;
-			push @locs, $_->min."..".$_->max.":".$_->strand foreach @hits;
-			my $loc_info = join(",", @locs);
-			$reason = "NO_TRIMMED_SEQUENCE [$loc_info]";
+			$reason = "NO_TRIMMED_SEQUENCE";
 			$start = undef; # unable to provide trimmed sequence
 		}
+	}
+	# Include the location of the barcode hits if trimming fails, for any reason
+	if ($reason) {
+		my @hits = sort { $a->{min} <=> $b->{min} } @$hits;
+		my @locs;
+		push @locs, $_->pattern.":".$_->min."..".$_->max.":".$_->strand.":".$_->mismatches foreach @hits;
+		my $loc_info = join(" ", @locs);
+		$reason .= "\t$loc_info";
 	}
 	
 	return ($start, $end, $reason);
