@@ -16,7 +16,11 @@ my ($fasta, $pattern, $answers_file, $dir, $key) = @ARGV;
 $fasta ||= "$Bin/data/test_GEIVOUP02.sff";
 $pattern ||= "$Bin/data/test_barcode_metadata_from_GLK.txt.pat";
 $answers_file = "$Bin/data/test_GEIVOUP02_expected_answer_trim_BC019CG.txt.trim";
-$dir ||= "/usr/local/scratch/$user.deconvolve.test";
+if (!$dir) {
+	$dir = "/usr/local/scratch/$user";
+	mkdir $dir unless -e $dir;
+	$dir .= "/test_deconvolution";
+}
 mkdir $dir unless -e $dir;
 die "Output directory $dir is not writeable.\n" unless -w $dir;
 die "Unable to read barcode pattern file: $pattern.\n" unless -r $pattern;
