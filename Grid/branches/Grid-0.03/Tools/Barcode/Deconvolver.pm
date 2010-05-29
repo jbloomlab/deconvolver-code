@@ -583,7 +583,7 @@ sub write_temp_fasta_files {
 				if system($sc);
 		
 		# Prepend the key sequence to the fasta file
-		$self->prepend_fasta_with_key($fasta_file, $self->key) if $self->key;
+		$self->pre_and_post_append_fasta_with_key($fasta_file, $self->key) if $self->key;
 		
 	} elsif ($self->informat eq "fastq") {
 	
@@ -603,7 +603,7 @@ sub write_temp_fasta_files {
 				unless $num_seqs;
 	
 		# Prepend the key sequence to the fasta file
-		$self->prepend_fasta_with_key($fasta_file, $self->key) if $self->key;
+		$self->pre_and_post_append_fasta_with_key($fasta_file, $self->key) if $self->key;
 		
 	} elsif ($self->informat eq "sff") {
 		
@@ -628,7 +628,7 @@ sub write_temp_fasta_files {
 		# ($self->key) ? "sffinfo -notrim -s $sff_file > $fasta_file"
 		
 		# Prepend the key sequence to the fasta file
-		$self->prepend_fasta_with_key($fasta_file, $self->key) if $self->key;
+		$self->pre_and_post_append_fasta_with_key($fasta_file, $self->key) if $self->key;
 		
 		# Qualities files are not required to define trim points
 		unless ($self->trim_points_only) {
@@ -641,13 +641,13 @@ sub write_temp_fasta_files {
 	}
 }
 
-=head2 prepend_fasta_with_key()
+=head2 pre_and_post_append_fasta_with_key()
 
 	Takes a fasta file and prepends the key sequence to it, and replaces
 	the fasta file
 	
 =cut
-sub prepend_fasta_with_key {
+sub pre_and_post_append_fasta_with_key {
 	my ($self, $fasta_file, $key) = @_;
 	
 	# Read fasta sequences into tmp_table
@@ -665,14 +665,24 @@ sub prepend_fasta_with_key {
 	# simply by not prepending it
 	if (!$is_key_prepended) {
 		
+		# Get the reverse complement of our key
+		my $revcomp_key = $self->revcomp($key);
+		
 		# Write a new fasta file using this tmp_table
 		open (PREPENDED_FASTA, "> $fasta_file") || die "Could not open fasta file for writing\n";
 		foreach my $F (values %$tmp_table) {
-			$F->seq($key.$F->seq);
+			$F->seq($key.$F->seq.$revcomp_key);
 			print PREPENDED_FASTA join(" ", ">".$F->id, $F->desc), "\n", $F->fasta_seq;
 		}
 		close PREPENDED_FASTA;
 	}
+}
+
+sub revcomp {
+	my ($self, $seq) = @_;
+	my $revcomp_seq = reverse($seq);
+	$revcomp_seq =~ tr/ACGTacgt/TGCAtgca/;
+	return $revcomp_seq;
 }
 
 

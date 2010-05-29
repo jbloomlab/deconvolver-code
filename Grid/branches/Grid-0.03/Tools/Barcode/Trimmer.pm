@@ -32,6 +32,15 @@ barcode clamp.
 B<Returns:> a listref of merged FileIO::FuzznucHit objects extended in both directions
 by the length of the clamp
 
+Typical trimming cases
+
+sff file:		sequence starts at base 33
+| key (4bp) | barcode (22bp) | hexamer/clamp (6bp) | -------- sequence ------->
+1           5                27                    33
+
+fastq file:	sequence starts at base 29
+| barcode (22bp) | hexamer/clamp (6bp) | -------- sequence ------->
+1                23                    29
 
 =cut
 
@@ -55,7 +64,14 @@ sub trim_clear_range {
 	# (since $F->seq is not prepended with the $Deconvolver->key)
 	if (!$Deconvolver->key && $key_length) {
 		$seqlen += $key_length;
+		
+	# Since we appended the key sequence, we have to decrement
+	# the actual seqlen by the key_length
+	} elsif ($Deconvolver->key) {
+		$seqlen -= $key_length;
 	}
+	
+	# not ok 22 - GEIVOUP02F3L12 answer BC019CG 35..192 assigned  ..
 	
 	my $num_hits = scalar @$hits;
 	if ($num_hits == 1) {
@@ -66,6 +82,11 @@ sub trim_clear_range {
 		if ($hit->strand =~ /-/) {
 			$start = 0;
 			$end = $hit->min - $clamp_length;
+
+			# Not sure why?
+			if ($Deconvolver->key) {
+				$start += $key_length;
+			}
 			
 		# positive strand: we want the sequence 3' of the barcode-clamp
 		# ---Barcode---Clamp==================================================
@@ -100,6 +121,11 @@ sub trim_clear_range {
 		} elsif ($hit1->strand eq "-" && $hit2->strand eq "-") {
 			$start = 0;
 			$end = $hit1->min - $clamp_length;
+			
+			# Not sure why?
+			if ($Deconvolver->key) {
+				$start += $key_length;
+			}
 		}
 		
 	} elsif ($num_hits == 3) {
