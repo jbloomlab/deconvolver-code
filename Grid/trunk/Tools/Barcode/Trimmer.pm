@@ -36,12 +36,26 @@ by the length of the clamp
 =cut
 
 sub trim_clear_range {
-	my ($self, $seq, $hits, $clamp_length) = @_;
+	my ($self, $Deconvolver, $barcode, $seq, $hits) = @_;
+	my $clamp_length = $Deconvolver->clamplength($barcode);
 	$clamp_length = 0 unless $clamp_length > 0;
+	my $key_length = $Deconvolver->keylength;
+	$key_length = 0 unless $key_length > 0;
 	
 	# Define our trim points
 	my ($start, $end);
 	my $seqlen = length($seq);
+	
+	# When we have the prepended key sequence, our hit is typically from
+	# 0..26 (4bp key + 22bp barcode), the start is 
+	# 33 (4bp key + 22bp barcode + clamp_length + 1)
+	
+	# If the user provides the key length but not the sequence,
+	# then offset the sequence length by the key length
+	# (since $F->seq is not prepended with the $Deconvolver->key)
+	if (!$Deconvolver->key && $key_length) {
+		$seqlen += $key_length;
+	}
 	
 	my $num_hits = scalar @$hits;
 	if ($num_hits == 1) {
@@ -108,6 +122,12 @@ sub trim_clear_range {
 			$end = $hit2->min - $clamp_length;
 		}
 		
+	}
+	
+	# Offset start and end of our clear range by the key sequence
+	if (!$Deconvolver->key && $key_length) {
+		$start += $key_length;
+		$end += $key_length;
 	}
 	
 	# Let's provide an explanation for our being unable to trim off these barcodes

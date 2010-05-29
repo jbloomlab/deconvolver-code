@@ -11,6 +11,11 @@ use Bio::Seq::Quality;
 use Time::HiRes qw(gettimeofday);
 use Cwd;
 
+# TESTING
+# For .sff input, if the user provides the key sequence, we 
+# write the prepended key to a fasta file.
+# what about .fastq input?
+
 ######################## DEFAULTS  ##########################
 
 # Default Settings
@@ -18,7 +23,7 @@ my $TRIM_READS 	= 1; 					# trim the barcodes off of the read sequences
 my $TRIM_POINTS_ONLY = 0;					# output only the trim points
 my $MIN_READ_LENGTH = 50; 					# Minimum acceptable read length after barcode trimming
 my $CLAMP_LENGTH 	= 6; 					# Length of barcode clamp to trim off
-my $KEY_LENGTH 	= 0; 					# Length of 454 keys, used for defining the trim points file.
+my $KEY_LENGTH 	= 4; 					# Length of 454 keys, used for defining the trim points file.
 my $CWD 			= cwd(); 					# current working directory
 my $TMP_DIR 		= "$CWD/tmp"; 				# temp directory
 my $OUT_DIR 		= "$CWD/out";				# output directory
@@ -50,7 +55,9 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	multibarcode_table
 	barcode_distr_table
 	hit_table
+	trim_table
 	key
+	keylength
 	trim_points_only 
 	verbose
 	guid
@@ -116,11 +123,27 @@ sub set_defaults {
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
+	$self->assignments_table({});
+	$self->trim_table({});
 	$self->num_seqs_with_hits(0);
-	$self->cleanup($CLEANUP) unless defined $self->cleanup;
 	
+	$self->cleanup($CLEANUP) unless defined $self->cleanup;
+	my $is_verbose = (defined $self->verbose && $self->verbose) ? 1 : 0;
+	$self->verbose($is_verbose);
 	# Read in our pattern file to set barcode-specific clamplength and readlength 
 	# $self->read_pattern_file();
+	
+	# Set key sequence (use uppercase as convention)
+	if (defined $self->key) {
+		die "Deconvolution requires either providing the key sequence or length, but not both.\n"
+			if $self->keylength;
+		$self->key(uc($self->key));
+		$self->keylength(length($self->key));
+	
+	# Otherwise, we set our default key length
+	} else {
+		$self->keylength($KEY_LENGTH) unless defined $self->keylength;
+	}
 	
 	# Log results to STDOUT unless a log filehandle is provided
 	$self->logfilehandle(*STDOUT) unless defined $self->logfilehandle;
@@ -164,10 +187,6 @@ sub validate_parameters {
 	$error_mssg.= "Error: Failed test attempt to guess path of fuzznuc executable\n"
 			unless $guess_exec;
 	
-	# Verify that the key sequence is provided only for sff input files
-	$error_mssg.= "Error: Providing a key sequence is only compatible with sff input files.\n"
-		if defined $self->key && $self->informat ne "sff";
-		
 	return $error_mssg;
 }
 
@@ -225,6 +244,7 @@ sub print_runtime_settings {
 			"#\t-mismatches $mismatches",
 			"#\t-readlength ".$self->readlength,
 			"#\t-clamplength ".$self->clamplength,
+			"#\t-keylength ".$self->keylength,
 			"#\t-key $key",
 			"#\t-trim_points_only $$self{trim_points_only}",
 			"#\t-tmpdir $$self{tmpdir}",
@@ -259,12 +279,6 @@ sub readlength {
 =cut
 sub clamplength {
 	return shift->_options('clamplength', @_);
-}
-=head2 keylength()
-	Same approach as readlength
-=cut
-sub keylength {
-	return shift->_options('keylength', @_);
 }
 
 =head2 _options()
@@ -568,6 +582,9 @@ sub write_temp_fasta_files {
 		die "Error: Problem with writing clean fasta file from $infile\n" 
 				if system($sc);
 		
+		# Prepend the key sequence to the fasta file
+		$self->prepend_fasta_with_key($fasta_file, $self->key) if $self->key;
+		
 	} elsif ($self->informat eq "fastq") {
 	
 		# write a clean fastq file
@@ -585,6 +602,9 @@ sub write_temp_fasta_files {
 		die "Error: No sequences parsed from input fastq file $fastq_file\n" 
 				unless $num_seqs;
 	
+		# Prepend the key sequence to the fasta file
+		$self->prepend_fasta_with_key($fasta_file, $self->key) if $self->key;
+		
 	} elsif ($self->informat eq "sff") {
 		
 		my $sff_file = $self->sff_file($self->tmpdir."/$base_file.sff");
@@ -599,26 +619,62 @@ sub write_temp_fasta_files {
 		print STDERR "Writing fasta sequences from sff file\n" if $self->verbose;
 		
 		# Use the untrimmed sequence file (with key sequence prepended) for our searches
-		my $sc_fasta = ($self->key) 
-						? "sffinfo -notrim -s $sff_file > $fasta_file"
-						: "sffinfo -s $sff_file > $fasta_file";
-		
+		my $sc_fasta = "sffinfo -s $sff_file > $fasta_file";
 		die "Error: Problem with writing fasta from sff file $sff_file\n" 
 				if system($sc_fasta);
+		
+		# We do not do the following since we need the lowercase sequence to be trimmed, and then we
+		# can append the key sequence
+		# ($self->key) ? "sffinfo -notrim -s $sff_file > $fasta_file"
+		
+		# Prepend the key sequence to the fasta file
+		$self->prepend_fasta_with_key($fasta_file, $self->key) if $self->key;
 		
 		# Qualities files are not required to define trim points
 		unless ($self->trim_points_only) {
 			# (3) convert to fasta qualities file
 			print STDERR "Writing fasta qualities from sff file\n" if $self->verbose;
-			my $sc_fasta_quals = ($self->key) 
-						? "sffinfo -notrim -q $sff_file > $quals_file"
-						: "sffinfo -q $sff_file > $quals_file";
-			
+			my $sc_fasta_quals = "sffinfo -q $sff_file > $quals_file";
 			die "Error: Problem with writing fasta qualies from sff file $sff_file\n" 
 					if system($sc_fasta_quals);
 		}
 	}
 }
+
+=head2 prepend_fasta_with_key()
+
+	Takes a fasta file and prepends the key sequence to it, and replaces
+	the fasta file
+	
+=cut
+sub prepend_fasta_with_key {
+	my ($self, $fasta_file, $key) = @_;
+	
+	# Read fasta sequences into tmp_table
+	my $tmp_table = FileIO::FastaUtils->parse_fasta_by_file($fasta_file);
+	                                          
+	# Verify that the key sequence is not already prepended
+	my $is_key_prepended = 1;
+	foreach my $F (values %$tmp_table) {
+		if (substr($F->seq, 0, length($key)) !~ /$key/i) {
+			$is_key_prepended = 0;
+		}
+	}
+	
+	# We do not expect the key to be prepended, but we can handle this situation 
+	# simply by not prepending it
+	if (!$is_key_prepended) {
+		
+		# Write a new fasta file using this tmp_table
+		open (PREPENDED_FASTA, "> $fasta_file") || die "Could not open fasta file for writing\n";
+		foreach my $F (values %$tmp_table) {
+			$F->seq($key.$F->seq);
+			print PREPENDED_FASTA join(" ", ">".$F->id, $F->desc), "\n", $F->fasta_seq;
+		}
+		close PREPENDED_FASTA;
+	}
+}
+
 
 =head2 read_pattern_file()
 
@@ -792,7 +848,7 @@ sub print_log_report {
 	my $num_multicoded_seqs = ($multibarcode_table) ? scalar keys %{ $multibarcode_table } : 0;
 	my $perc_seqs_with_hits = ($num_seqs) ? sprintf("%.2f", (($num_seqs_with_hits/$num_seqs)*100)) : "0.0";
 	my $perc_seqs_deconvolved = ($num_seqs) ? sprintf("%.2f", (($num_seqs_deconvolved/$num_seqs)*100)) : "0.0"; 
-	my $perc_seqs_validated = ($num_seqs) ? sprintf("%.2f", (($num_seqs_validated/$num_seqs_deconvolved)*100)) : "0.0";
+	my $perc_seqs_validated = ($num_seqs_deconvolved) ? sprintf("%.2f", (($num_seqs_validated/$num_seqs_deconvolved)*100)) : "0.0";
 	my $perc_multicoded_seqs = ($num_seqs) ? sprintf("%.2f", (($num_multicoded_seqs/$num_seqs)*100)) : "0.0";
 	
 	print $logfh join("\n",
@@ -811,7 +867,6 @@ sub print_log_report {
 		my $num_bp = $barcode_distr_table->{$barcode_id}{num_bp};
 		my $perc_seqs = ($num_seqs_deconvolved) ? sprintf("%.1f", (($num_seqs/$num_seqs_deconvolved)*100)) : "0.0";
 		my $perc_bp = ($deconvolved_bp) ? sprintf("%.1f", (($num_bp/$deconvolved_bp)*100)) : "0.0";
-		print join(" ", "barcode", $barcode_id, $num_seqs, $perc_seqs, $num_bp, $perc_bp), "\n";
 	}
 }
 
@@ -888,9 +943,6 @@ sub make_assignment_table {
 	die "Expecting a hit iterator, but got $Hit_Iterator instead.\n"
 		unless $Hit_Iterator && ref($Hit_Iterator) eq "CODE";
 	
-	# Build our hash of sequences with their barcode assignments
-	my $assignments_table;
-	
 	# Create our hash of sequences with multiple barcodes
 	my $multibarcode_table;
 	
@@ -909,29 +961,11 @@ sub make_assignment_table {
 			# Reached a new sequence
 			} else {
 				$num_seqs_with_hits++;
-				$num_hits = scalar @Hits;
 				
 				# Handle the previous set of Hits (to $prev_id)
-				if ($num_hits) {
-					
-					# Assign sequence to its unique barcode hit
-					if ($num_hits == 1) {
-						$assignments_table->{$Hits[0]->pattern}{$prev_id} = [ $Hits[0] ];
-						
-					# Otherwise, check if this sequence has multiple barcode hits
-					} else {
-						my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(@Hits);
-						if ($is_multicoded) {
-							$multibarcode_table->{$prev_id} = $Hits_Sorted;
-						
-						# Assign the sorted hits
-						} else {
-							$assignments_table->{$Hits[0]->pattern}{$prev_id} = $Hits_Sorted;
-						}
-					}
-				}
+				$self->assign_sequence_by_hits($prev_id, @Hits) if scalar @Hits;
 				
-				# Start a list of hits for this new sequence
+				# Start a new list of hits for this current sequence
 				@Hits = ($Hit);
 				$prev_id = $seq_id;
 			}
@@ -944,7 +978,11 @@ sub make_assignment_table {
 		}
 	}
 	
-	# Handle the last hit?
+	# Handle the last hit
+	if ($prev_id) {
+		$num_seqs_with_hits++;
+		$self->assign_sequence_by_hits($prev_id, @Hits) if scalar @Hits;
+	}
 	
 	# Report count of multicoded sequences
 	if ($self->verbose) {
@@ -959,7 +997,31 @@ sub make_assignment_table {
 	$self->multibarcode_table($multibarcode_table);
 	
 	# Set and return our assignments table
-	return $self->assignments_table($assignments_table);
+	return $self->assignments_table;
+}
+
+sub assign_sequence_by_hits {
+	my ($self, $prev_id, @Hits) = @_;
+	
+	if ($prev_id) {
+		my $num_hits = scalar @Hits;
+		
+		# Assign sequence to its unique barcode hit
+		if ($num_hits == 1) {
+			$self->assignments_table->{$Hits[0]->pattern}{$prev_id} = [ $Hits[0] ];
+			
+		# Otherwise, check if this sequence has multiple barcode hits
+		} else {
+			my ($is_multicoded, $Hits_Sorted) = $self->check_multicoded_hits(@Hits);
+			if ($is_multicoded) {
+				$self->multibarcode_table->{$prev_id} = $Hits_Sorted;
+			
+			# Assign the sorted hits
+			} else {
+				$self->assignments_table->{$Hits[0]->pattern}{$prev_id} = $Hits_Sorted;
+			}
+		}
+	}
 }
 
 =head2 num_assignments()
@@ -990,7 +1052,9 @@ sub write_barcode_fasta {
 	my $assignments_table = $self->assignments_table;
 	my $barcode_table = $self->barcode_table;
 	my $fasta_table = $self->fasta_table;
+	my $trim_table = $self->trim_table;
 	my ($outdir, $outformat) = ($self->outdir, $self->outformat);
+	my $key_length = $self->keylength || 0;
 	
 	# Trim our sequences, and write the trim logfile
 	print STDERR "Writing barcode reports\n";
@@ -1042,7 +1106,10 @@ sub write_barcode_fasta {
 			my $seq = $F->seq; # untrimmed sequence
 			
 			# Get the clear range of our sequence (extracts barcode and clamp)
-			my ($clear_start, $clear_end, $reason) = Grid::Tools::Barcode::Trimmer->trim_clear_range($seq, $Hits, $self->clamplength($barcode_id));
+			my ($clear_start, $clear_end, $reason) = Grid::Tools::Barcode::Trimmer->trim_clear_range($self, $barcode_id, $seq, $Hits, , $key_length);
+			
+			# Store the results in our trim table
+			$trim_table->{$seq_id} = [ $barcode_id, $clear_start + 1, $clear_end, $reason ];
 			
 			# Log the reason for throwing out this read if we can't define where the clear range start begins
 			if (!defined $clear_start) {
@@ -1067,16 +1134,30 @@ sub write_barcode_fasta {
 			print FH_TRIMPOINTS join("\t", $seq_id, $clear_start + 1, $clear_end), "\n";
 			next if $self->trim_points_only;
 			
+			# Since the clear range coordinates are offset by the key_length 
+			# (in order to produce the correct trim points file), then we need
+			# to offset the coordinates by the key_length to obtain the correct 
+			# sequence and quality values.
+			my ($qv_start, $qv_end) 	= ($clear_start - $key_length, $clear_end - $key_length);
+			my ($seq_start, $seq_end)= ($clear_start - $key_length, $clear_end - $key_length);
+			
+			# The above comments are true except when the sequence is prepended
+			# with the key which only occurs when $self->key is defined
+			# Quality values are never prepended with the key
+			if ($self->key) {
+				($seq_start, $seq_end) = ($clear_start, $clear_end);
+			}
+			
 			# Update our fasta record with the "clear range" trimmed sequence
-			$F->seq(substr($seq, $clear_start, $clear_end-$clear_start));
+			$F->seq(substr($seq, $seq_start, $seq_end - $seq_start));
 			
 			# Update our quality values with the "clear range" trimmed values
 			my @quality_arr = split / /, $F->qual; 
-			$F->qual(join(" ", @quality_arr[$clear_start..$clear_end-1]));
+			$F->qual(join(" ", @quality_arr[$qv_start..$qv_end - 1]));
 			
 			# Verify that we have sequence and quality values
-			die "Bug: No sequence", join("\n", $seq_id, $seq, "trimmed_seq ($clear_start..$clear_end) ",$F->seq, $F->qual), "\n" if !$F->seq;
-			die "Bug: No qualities", join(" ", $seq_id, "trimmed_qual ($clear_start..$clear_end)", "length=", scalar @quality_arr, $F->qual), "\n" if !$F->qual;
+			die "Bug: No sequence", join("\n", $seq_id, $seq, "trimmed_seq clear range $clear_start..$clear_end seq range $seq_start..$seq_end ", $F->seq, $F->qual), "\n" if !$F->seq;
+			die "Bug: No qualities", join(" ", $seq_id, "trimmed_qual clear range $clear_start..$clear_end qv range $qv_start..$qv_end ", "length=", scalar @quality_arr, $F->qual), "\n" if !$F->qual;
 			
 			# Report the locations of our barcode hits
 			my $locs_string;
@@ -1204,8 +1285,12 @@ sub validate_results {
 		}
 	}
 	
-	print STDERR "Validation failed with number of invalid assignments: $num_invalid\n" if $num_invalid;
 	$self->num_seqs_validated($num_valid);
+	if ($num_invalid && $self->verbose) {
+		print STDERR "Failed validation with number of invalid assignments: $num_invalid\n";
+	} else {
+		print STDERR "Complete validation with valid:$num_valid invalid:$num_invalid sequences.\n";
+	}
 	
 	my $is_success = ($is_fuzznuc_results_found && $num_valid && !$num_invalid) ? 1 : 0;
 	return $is_success;

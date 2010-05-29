@@ -5,24 +5,30 @@ use FindBin qw($Bin);
 use lib "$Bin/../../";
 use Grid::SGE;
 use Grid::Tools::Barcode::Deconvolver;
-use Test::More tests => 8;
+use Test::More;
 
 # Get the user
 my $user=`whoami`; chomp $user;
 $user ||= "deconvolve";
 
-my ($fasta, $pattern, $dir) = @ARGV;
-$fasta ||= "/usr/local/devel/VIRIFX/users/naxelrod/data/FTF2AAH01.sff";
-$pattern ||= "/usr/local/devel/VIRIFX/users/naxelrod/data/barcodes.pat";
-$dir ||= "/usr/local/scratch/$user";
+# Set inputs files and output directory
+my ($fasta, $pattern, $answers_file, $dir, $key) = @ARGV;
+$fasta ||= "$Bin/data/test_GEIVOUP02.sff";
+$pattern ||= "$Bin/data/test_barcode_metadata_from_GLK.txt.pat";
+$answers_file = "$Bin/data/test_GEIVOUP02_expected_answer_trim_BC019CG.txt.trim";
+$dir ||= "/usr/local/scratch/$user.deconvolve.test";
+mkdir $dir unless -e $dir;
 die "Output directory $dir is not writeable.\n" unless -w $dir;
-die "A barcode pattern file is required.\n" unless -r $pattern;
-die "An input fasta file is required.\n" unless -r $fasta;
+die "Unable to read barcode pattern file: $pattern.\n" unless -r $pattern;
+die "Unable to read fasta file: $fasta.\n" unless -r $fasta;
+die "Unable to read answers file: $answers_file.\n" unless -r $answers_file;
 
-# Set the input files and output directories
-my $outdir = "$dir/out";
-my $errdir = "$dir/err";
-my $tmpdir = "$dir/tmp";
+# Set the input, tmp and output directories to $dir
+my ($outdir, $errdir, $tmpdir);
+$outdir = $errdir = $tmpdir = $dir;
+
+# Issue the test plan when we call done_testing($num_tests)
+my $num_tests = 0;
 
 # Get our SGE object based on options
 my $grid = new Grid::SGE({
@@ -33,37 +39,21 @@ my $grid = new Grid::SGE({
 			errdir	=> $errdir,
 			outdir	=> $outdir,
 			verbose	=> 1,
-			poll_delay => 60,
 });
 
 # Get our Grid::Tools::Barcode::Deconvolver object
 # Test (1a): Using options stringified
 my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
+			key		=> $key,
 			grid		=> $grid,
 			pattern	=> $pattern,
 			infile	=> $fasta,
 			tmpdir	=> $tmpdir,
 			errdir	=> $errdir,
 			outdir	=> $outdir,
-			verbose	=> 1,
-			options 	=> "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
+			cleanup 	=> 0,
+			verbose	=> 1
 });
-
-# Test that barcode pattern file ($pattern) was read correctly
-my $default_readlength = $Deconvolver->readlength();
-ok($default_readlength == 50, "Default minimum read length is 50.");
-ok($Deconvolver->readlength('BC009CG') == 70, "Minimum read length for barcode BC009CG is 70.");
-
-# Let's set some barcode-specific values (by hash)
-$Deconvolver->clamplength({ 
-	'BC009CG' => 14, 
-	'BC015CG' => 10 
-});
-ok($Deconvolver->clamplength('BC009CG') == 14, "Test setting clamplength for barcode BC009CG by hash.");
-
-# Or, set as key-value pairs
-$Deconvolver->clamplength('BC009CG', 10);
-ok($Deconvolver->clamplength('BC009CG') == 10, "Test setting clamplength for barcode BC009CG by argument.");
 
 # Run the grid deconvolution pipeline
 $Deconvolver->run();
@@ -84,23 +74,49 @@ foreach my $T (@$Tasks) {
 }
 ok($num_tasks == $num_success, "All fuzznuc tasks are successfully completed");
 ok(!$num_failed, "No job failures");
+$num_tests += 2;
 
-# Test that a "reasonable" number of assignments were made
-my $num_seqs = scalar keys %{ $Deconvolver->fasta_table };
-my $num_seqs_with_hits = $Deconvolver->num_seqs_with_hits;
-my $num_assignments = $Deconvolver->num_assignments;
-my $perc_seqs_with_hits = ($num_seqs) ? int(($num_seqs_with_hits/$num_seqs)*100) : 0;
-my $perc_assignments = ($num_seqs) ? int(($num_assignments/$num_seqs)*100) : 0;
-print join(", ", $num_seqs, $num_seqs_with_hits, $num_assignments, $perc_seqs_with_hits, $perc_assignments), "\n";
-cmp_ok($perc_seqs_with_hits, '>=', 90, "Test at least 90\% of sequences have barcode hits ($perc_seqs_with_hits)");
-cmp_ok($perc_assignments, '>=', 50, "Test at least 50\% of sequences are assigned to barcodes ($perc_assignments)");
+# Get the trim results made by our deconvolution pipeline
+my $trim_table = $Deconvolver->trim_table;
 
-# 601967, 566509, 95, 94, 0
-# perc_assign = 95
+# Test the results match our answer file
+my @answers = read_answers_file($answers_file);
+foreach my $answer (@answers) {
+	my ($seq_id, $barcode, $clear_start, $clear_end) = @$answer;
+	my ($assigned_barcode, $assigned_start, $assigned_end) = get_trim_points($trim_table, $seq_id);
+	ok($assigned_barcode eq $barcode && $assigned_start == $clear_start && $assigned_end == $clear_end, 
+			"$seq_id answer $barcode $clear_start..$clear_end assigned $assigned_barcode $assigned_start..$assigned_end");
+	$num_tests++;
+}
 
 # Report any job failures
 print $grid->tasks_report() if $num_failed;
 
-done_testing();
+done_testing($num_tests);
+
+
+######################## SUB ROUTINES ############################
+
+sub read_answers_file {
+	my $answers_file = shift;
+	my @answers;
+	open (ANSWERS, "< $answers_file" ) || die "Could not open answers file $answers_file\n";
+	while (<ANSWERS>) {
+		chomp;
+		my ($barcode, $seq_id, $clear_start, $clear_end) = split /\s+/, $_;
+		push @answers, [ $seq_id, $barcode, $clear_start, $clear_end ];
+	}
+	return @answers;
+}
+
+sub get_trim_points {
+	my ($trim_table, $seq_id) = @_;
+	my $trim_results = $trim_table->{$seq_id} || print STDERR "Error: No trim results found for sequence $seq_id\n";
+	if ($trim_results && ref($trim_results) eq "ARRAY") {
+		return @$trim_results;
+	} else {
+		return ("", "", ""); # [ $clear_start, $clear_end, $reason ]
+	}
+}
 
 
