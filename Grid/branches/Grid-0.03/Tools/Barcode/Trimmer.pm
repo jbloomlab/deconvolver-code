@@ -55,10 +55,6 @@ sub trim_clear_range {
 	my ($start, $end);
 	my $seqlen = length($seq);
 	
-	# When we have the prepended key sequence, our hit is typically from
-	# 0..26 (4bp key + 22bp barcode), the start is 
-	# 33 (4bp key + 22bp barcode + clamp_length + 1)
-	
 	# If the user provides the key length but not the sequence,
 	# then offset the sequence length by the key length
 	# (since $F->seq is not prepended with the $Deconvolver->key)
@@ -70,8 +66,6 @@ sub trim_clear_range {
 	} elsif ($Deconvolver->key) {
 		$seqlen -= $key_length;
 	}
-	
-	# not ok 22 - GEIVOUP02F3L12 answer BC019CG 35..192 assigned  ..
 	
 	my $num_hits = scalar @$hits;
 	if ($num_hits == 1) {

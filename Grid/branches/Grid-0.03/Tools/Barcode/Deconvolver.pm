@@ -123,6 +123,7 @@ sub set_defaults {
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
+	$self->multibarcode_table({}) unless defined $self->multibarcode_table;
 	$self->assignments_table({});
 	$self->trim_table({});
 	$self->num_seqs_with_hits(0);
