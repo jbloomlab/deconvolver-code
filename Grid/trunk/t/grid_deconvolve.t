@@ -19,7 +19,7 @@ $answers_file = "$Bin/data/test_GEIVOUP02_expected_answer_trim_BC019CG.txt.trim"
 if (!$dir) {
 	$dir = "/usr/local/scratch/$user";
 	mkdir $dir unless -e $dir;
-	$dir .= "/test_deconvolution";
+	$dir .= "/test_grid_deconvolve";
 }
 mkdir $dir unless -e $dir;
 die "Output directory $dir is not writeable.\n" unless -w $dir;
