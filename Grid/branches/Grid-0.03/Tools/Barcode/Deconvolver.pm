@@ -10,6 +10,7 @@ use FileIO::FuzznucUtils;
 use Bio::Seq::Quality;
 use Time::HiRes qw(gettimeofday);
 use Cwd;
+use IO::Handle;
 
 # TESTING
 # For .sff input, if the user provides the key sequence, we 
@@ -90,12 +91,12 @@ sub init {
 	# Set defaults for any unspecified, optional parameters
 	$self->set_defaults();
 	
-	# Read in our pattern file to set barcode-specific clamplength and readlength 
-	$self->read_pattern_file();
-	
 	# Make output directories
 	mkdir $self->outdir unless -e $self->outdir;
 	mkdir $self->tmpdir unless -e $self->tmpdir;
+
+	# Read in our pattern file to set barcode-specific clamplength and readlength 
+	$self->read_pattern_file();
 	
 	return $self;
 }
@@ -537,28 +538,33 @@ sub run_grid_fuzznuc {
 =cut
 
 sub run_fuzznuc {
-	my $self = shift;
+	my ($self, $output_file) = @_;
 		
 	# Run on the grid if possible
 	return $self->run_grid_fuzznuc() if $self->grid;
 	
 	# Set a unique name for our output file
-	my ($secut,$musec) = gettimeofday;
-	my ($guid) = sprintf("%010d%06d%05d", $secut, $musec, $$);
-	my $output_file = $self->outdir."/fuzznuc_$guid.csv";
-	print STDERR "Running fuzznuc (not on the grid)\n" if $self->verbose;
-		
+	unless ($output_file) {
+		my ($secut,$musec) = gettimeofday;
+		my ($guid) = sprintf("%010d%06d%05d", $secut, $musec, $$);
+		$output_file = $self->outdir."/fuzznuc_$guid.csv";
+	}
+	
 	# Get our fuzznuc executable command, and redirect stdout to our output file
-	my $exec_fuzznuc = $self->executable_command() . " > $output_file";
+	my $exec_fuzznuc = $self->set_fuzznuc->executable_command() 
+			. " -sequence ".$self->fasta_file." | grep -v SeqName > $output_file";
 	
 	# Run fuzznuc and check the status code that is returned
+	print STDERR "Running fuzznuc (not on the grid)\n$exec_fuzznuc\n" if $self->verbose;
 	my $status_code = system($exec_fuzznuc);
 	
 	# fuzznuc should return a status code of 0, if it completes successfully
-	if ($status_code) {
-		print STDERR "\nError: fuzznuc returns with a status code $status_code\n";
-	} else {
-		print STDERR "ok\n";
+	if ($self->verbose) {
+		if ($status_code) {
+			print STDERR "\nError: fuzznuc returns with a status code $status_code\n";
+		} else {
+			print STDERR "fuzznuc is complete.\n";
+		}
 	}
 	
 	my $is_success = ($status_code) ? 0 : 1;
@@ -1248,7 +1254,7 @@ sub validate_results {
 	opendir (OUTDIR, $outdir) || die "Could not open directory $outdir\n";
 	my @entries = readdir(OUTDIR);
 	foreach my $fuzznuc_file (@entries) {
-		if ($fuzznuc_file =~ /^fuzznuc\./) {
+		if ($fuzznuc_file =~ /^fuzznuc/) {
 			open (FUZZNUC, "< $outdir/$fuzznuc_file") || die "Could not open file $fuzznuc_file\n";
 			#print "Fuzznuc file $outdir/$fuzznuc_file\n";
 			while (<FUZZNUC>) {
