@@ -172,7 +172,7 @@ sub trim_clear_range {
 	if ($reason) {
 		my @hits = sort { $a->{min} <=> $b->{min} } @$hits;
 		my @locs;
-		push @locs, $_->pattern.":".$_->min."..".$_->max.":".$_->strand.":".$_->mismatches foreach @hits;
+		push @locs, $_->pattern.":".$_->min."..".$_->max.":".$_->strand.":".$_->num_mismatches foreach @hits;
 		my $loc_info = join(" ", @locs);
 		$reason .= "\t$loc_info";
 	}
