@@ -882,6 +882,7 @@ sub print_log_report {
 		my $num_bp = $barcode_distr_table->{$barcode_id}{num_bp};
 		my $perc_seqs = ($num_seqs_deconvolved) ? sprintf("%.1f", (($num_seqs/$num_seqs_deconvolved)*100)) : "0.0";
 		my $perc_bp = ($deconvolved_bp) ? sprintf("%.1f", (($num_bp/$deconvolved_bp)*100)) : "0.0";
+		print join(" ", "barcode", $barcode_id, $num_seqs, $perc_seqs, $num_bp, $perc_bp), "\n";
 	}
 }
 
