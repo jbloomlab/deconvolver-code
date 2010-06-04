@@ -716,14 +716,12 @@ sub read_pattern_file {
 		my ($base_file) = fileparse($pattern_file, qr/\.[^.]*/);
 		my $tmp_pattern_file = $self->pattern($self->tmpdir."/$base_file.pat");
 		open(OUT, "> $tmp_pattern_file") || die "Could not open fasta file $tmp_pattern_file for writing.\n";
-	}
+		print STDERR "Writing temp barcode file with prepended key sequence ($$self{key}) to $tmp_pattern_file\n"
+			if $self->verbose;
 	
-	if ($self->verbose) {
-		if ($self->key) {
-			print STDERR "Writing barcode file with prepended key sequence ($$self{key}) to $pattern_file\n";
-		} else {
-			print STDERR "Reading barcode file $pattern_file\n";
-		}
+	# Otherwise, we just read in the pattern file 
+	} else {
+		print STDERR "Reading barcode file $pattern_file\n" if $self->verbose;
 	}
 	
 	# delimit sequences by header line
