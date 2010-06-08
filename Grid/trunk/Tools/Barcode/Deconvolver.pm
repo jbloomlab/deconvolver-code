@@ -87,6 +87,8 @@ sub init {
 	# Check for required input parameters
 	die "An input file is required." unless defined $self->infile;
 	die "A pattern or pattern file is required." unless defined $self->pattern;
+	die "Unable to read input file $$self{infile}\n" unless -f $self->infile && -r $self->infile;
+	die "Unable to read barcode file $$self{pattern}\n" unless -f $self->pattern && -r $self->pattern;
 	
 	# Set defaults for any unspecified, optional parameters
 	$self->set_defaults();
@@ -159,8 +161,8 @@ sub set_defaults {
 sub validate_parameters {
 	my $self = shift;
 	my $error_mssg;
-	$error_mssg.= "Error: Unable to read input file $$self{infile}\n" unless -r $self->infile;
-	$error_mssg.= "Error: Unable to read barcode file $$self{pattern}\n" unless -r $self->pattern;
+	$error_mssg.= "Error: Unable to read input file $$self{infile}\n" unless -f $self->infile && -r $self->infile;
+	$error_mssg.= "Error: Unable to read barcode file $$self{pattern}\n" unless -f $self->pattern && -r $self->pattern;
 	$error_mssg.= "Error: Unable to write to output directory $$self{outdir}\n" unless -w $self->outdir;
 	$error_mssg.= "Error: Unable to write to temp directory $$self{tmpdir}\n" unless -w $self->tmpdir;
 	$error_mssg.= "Error: Invalid output format $$self{outformat}.  Choose fasta or fastq as the output format.\n"
@@ -851,9 +853,10 @@ sub print_log_report {
 	
 	# Get our hash table of barcode-sequence distribution
 	my $barcode_distr_table = $self->barcode_distr_table;
-	my ($num_seqs_deconvolved, $deconvolved_bp) = ($barcode_distr_table->{total}{seqs}, $barcode_distr_table->{total}{bp});
+	my $num_seqs_deconvolved = $barcode_distr_table->{total}{seqs} || 0;
+	my $deconvolved_bp = $barcode_distr_table->{total}{bp} || 0;
 	delete $barcode_distr_table->{total};
-
+	
 	# Header with basic stats on our search results
 	my $multibarcode_table = $self->multibarcode_table;
 	my $num_seqs = ($self->fasta_table) ? scalar keys %{ $self->fasta_table } : 0;
