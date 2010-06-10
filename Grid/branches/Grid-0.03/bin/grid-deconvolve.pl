@@ -98,10 +98,10 @@ B<--mailon>
 	# b		 mail is sent when the job begins execution. 
 	# e		 mail is sent when the job terminates. 
 	
-B<--readlength,-l>
+B<--readlength,-r>
 	OPTIONAL.  Minimal acceptable read length after barcode trimming is complete.
 
-B<--clamplength,-l>
+B<--clamplength,-c>
 	OPTIONAL.  The length of the barcode clamp. A/K/A hexamer length.  Default is 6.
 
 B<--key,-k>
@@ -169,8 +169,8 @@ my $results = GetOptions( \%opts,
 					'errdir|e=s',
 					'outformat=s',
 					'key|k=s',
-					'readlength:i',
-					'clamplength:i',
+					'readlength|r:i',
+					'clamplength|c:i',
 					'cleanup!',
 					'notify!',
 					'trim_points_only!',
