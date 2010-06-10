@@ -12,11 +12,6 @@ use Time::HiRes qw(gettimeofday);
 use Cwd;
 use IO::Handle;
 
-# TESTING
-# For .sff input, if the user provides the key sequence, we 
-# write the prepended key to a fasta file.
-# what about .fastq input?
-
 ######################## DEFAULTS  ##########################
 
 # Default Settings
@@ -778,6 +773,7 @@ sub read_pattern_file {
      
 	# Store number of barcodes
 	$self->num_barcodes( scalar keys %{ $barcode_table } );
+	$self->barcode_table($barcode_table);
 	
      close IN;
      close OUT if $self->key;
@@ -1085,15 +1081,16 @@ sub write_barcode_fasta {
 	# Record the distribution of barcodes across our sequences (num_reads, num_bp per barcode)
 	my $barcode_distr_table = $self->barcode_distr_table;
 	
-	foreach my $barcode_id (sort keys %$assignments_table) {
-		
+	# Use the barcode table to produce a directory for ALL barcodes, even if no assignments
+	#foreach my $barcode_id (sort keys %$assignments_table) {
+	foreach my $barcode_id (sort keys %$barcode_table) {
+	
 		# Put all of our trim files in this directory
 		my $barcodedir = "$outdir/$barcode_id";
 		mkdir $barcodedir unless -e $barcodedir;
 		
 		# Create a fasta file of barcodes
 		# <barcode id>_<barcode sequence>_<num allowed mismatches>_<blinded_id>.fna
-		my $Barcode = $barcode_table->{$barcode_id};
 		my $barcode_fasta_file = "$barcodedir/$barcode_id.fasta";
 		
 		# Create a trim report file
@@ -1111,8 +1108,8 @@ sub write_barcode_fasta {
 			}
 		}
 		
-		# Get the sequences assigned to this barcode
-		my @seq_ids = keys %{ $assignments_table->{$barcode_id} };
+		# Get the sequences assigned to this barcode (if any)
+		my @seq_ids = (exists $assignments_table->{$barcode_id}) ? keys %{ $assignments_table->{$barcode_id} } : ();
 		
 		foreach my $seq_id (@seq_ids) {
 			
