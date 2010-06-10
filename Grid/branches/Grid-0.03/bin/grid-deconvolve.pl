@@ -28,43 +28,16 @@ use Time::HiRes qw(gettimeofday);
 	  	--priority 1
 	  	--queue fast.q
 	  	--trim-points-only
-		--o /path/to/out
-		--e /path/to/err
-		--t /path/to/tmp
+		-o /path/to/out
+		-e /path/to/err
+		-t /path/to/tmp
 		--help 
 	 ]
 
 EXAMPLE
 
-	grid-deconvolve.pl -P 810001 --infile /usr/local/devel/VIRIFX/Grid/t/data/FTF2AAH01.sff --pattern /usr/local/devel/VIRIFX/Grid/t/data/barcodes.pat -o /usr/local/scratch/naxelrod/out -t /usr/local/scratch/naxelrod/tmp -e /usr/local/scratch/naxelrod/err
+	grid-deconvolve.pl -P 810001 --infile FTF2AAH01.sff --pattern barcodes.pat -o /usr/local/scratch/naxelrod/out -t /usr/local/scratch/naxelrod/tmp -e /usr/local/scratch/naxelrod/err
 
-=head1 SYNOPSIS
-	
-	my $grid = new Grid::SGE({
-				project => 810001,
-				queue	=> "fast.q",
-				name	=> "gridDeconvolve",
-				tmpdir	=> $tmpdir,
-				errdir	=> $errdir,
-				outdir	=> $outdir,
-				verbose	=> 1,
-				poll_delay => 30,
-	});
-	my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
-				grid	=> $grid,
-				pattern	=> $pattern,
-				infile	=> $fasta,
-				tmpdir	=> $tmpdir,
-				errdir	=> $errdir,
-				outdir	=> $outdir,
-				verbose	=> 1,
-				options => "-pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
-	});
-
-	my $num_assignments = $Deconvolver->run();
-
-	print $grid->failed_tasks_report() if $grid->failed_tasks;
-	
 =head1 OPTIONS
 
 B<--project,-p>
