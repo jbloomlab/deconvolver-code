@@ -1122,17 +1122,17 @@ sub write_barcode_fasta {
 			my $seq = $F->seq; # untrimmed sequence
 			
 			# Get the clear range of our sequence (extracts barcode and clamp)
-			my ($clear_start, $clear_end, $reason) = Grid::Tools::Barcode::Trimmer->trim_clear_range($self, $barcode_id, $seq, $Hits, , $key_length);
-			
-			# Store the results in our trim table
-			$trim_table->{$seq_id} = [ $barcode_id, $clear_start + 1, $clear_end, $reason ];
+			my ($clear_start, $clear_end, $reason) = Grid::Tools::Barcode::Trimmer->trim_clear_range($self, $barcode_id, $seq, $Hits);
 			
 			# Log the reason for throwing out this read if we can't define where the clear range start begins
 			if (!defined $clear_start) {
 				print FH_UNTRIMMED "$seq_id $reason\n";
 				next;
 			}
-			
+		
+                        # Store the results in our trim table
+                        $trim_table->{$seq_id} = [ $barcode_id, $clear_start + 1, $clear_end, $reason ];
+	
 			# Throw out the read if it does not fulfill our minimum length requirements
 			my $clear_seqlen = $clear_end - $clear_start;
 			if ($self->readlength && $clear_seqlen < $self->readlength) {
