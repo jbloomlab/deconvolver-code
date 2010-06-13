@@ -77,6 +77,9 @@ B<--readlength,-r>
 B<--clamplength,-c>
 	OPTIONAL.  The length of the barcode clamp. A/K/A hexamer length.  Default is 6.
 
+B<--keylength>
+        OPTIONAL.  The length of the key sequence.  Default is 4.
+
 B<--key,-k>
 	OPTIONAL.  The Roche/454 key sequence.  This is typically a 4bp sequence (eg. TCAG)
 			 that is on the 5' end of any read, upstream of the barcode sequence.
@@ -142,6 +145,7 @@ my $results = GetOptions( \%opts,
 					'errdir|e=s',
 					'outformat=s',
 					'key|k=s',
+					'keylength:i',
 					'readlength|r:i',
 					'clamplength|c:i',
 					'cleanup!',
