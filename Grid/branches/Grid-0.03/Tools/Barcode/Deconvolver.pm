@@ -106,8 +106,7 @@ sub init {
 
 sub set_defaults {
 	my $self = shift;
-	my $cwd = cwd();
-
+	
 	# Set our options hash for these variables
 	my $clamplength = (defined $self->{clamplength}) ? $self->{clamplength} : $CLAMP_LENGTH;
 	my $readlength = (defined $self->{readlength}) ? $self->{readlength} : $MIN_READ_LENGTH;
@@ -115,9 +114,17 @@ sub set_defaults {
 	delete $self->{readlength};
 	$self->clamplength($clamplength);
 	$self->readlength($readlength);
-
-	$self->outdir($OUT_DIR) unless defined $self->outdir;
-	$self->tmpdir($TMP_DIR) unless defined $self->tmpdir;
+	
+	# Use the default directories unless specified
+	$self->outdir($OUT_DIR) unless $self->outdir;
+	$self->tmpdir($OUT_DIR) unless $self->tmpdir;
+	
+	# Use fully qualified paths for input files and directories
+	$self->outdir($CWD ."/". $self->outdir) if $self->outdir && $self->outdir !~ /^\//;
+	$self->tmpdir($CWD ."/". $self->tmpdir) if $self->tmpdir && $self->tmpdir !~ /^\//;
+	$self->infile($CWD ."/". $self->infile) if $self->infile && $self->infile !~ /^\//;
+	$self->pattern($CWD ."/". $self->pattern) if $self->pattern && $self->pattern !~ /^\//;
+	
 	$self->trim_points_only($TRIM_POINTS_ONLY) unless defined $self->trim_points_only;
 	$self->fasta_table({}) unless defined $self->fasta_table;
 	$self->barcode_distr_table({}) unless defined $self->barcode_distr_table;
@@ -266,6 +273,7 @@ sub print_runtime_settings {
 	(2) Getters and setters for specifying individual options
 	my $readlength = $Tool->readlength('DA3DFDA13');
 	my $readlength = $Tool->readlength('DA3DFDA13', 3);
+	my $default_readlength = $Tool->readlength();
 	
 =cut
 
@@ -292,7 +300,7 @@ sub _options {
 	
 	# This is only used to manage barcode-specific readlength and clamplength values
 	if ($attribute !~ /readlength|clamplength/) {
-		die "Error: unexepected use of the _options function for attribute $attribute\n";
+		die "Error: unexpected use of the _options function for attribute $attribute\n";
 	}
 	
 	# Set options using hash, and returns the options hash
@@ -311,23 +319,15 @@ sub _options {
 	# Returns the value for an option (typical getter use)
 	elsif (defined $option) {
 		
+		# standard getter, ie. $self->clamplength('BC009CG');
+		if (defined $self->{$attribute}{$option}) {
+			return $self->{$attribute}{$option};
+		
 		# Setter case: Setting default values
 		# eg. $self->clamplength(5), ie. $self->_options('clamplength', 5);
-		if ($option =~ /\d/ && $option !~ /\D/) { # ints only
+		} elsif ($option =~ /\d/ && $option !~ /\D/) { # ints only
 			$self->{$attribute}{'DEFAULT'} = $option;
 			return $option;
-		
-		# Getter cases
-		} else {
-			
-			# standard getter, ie. $self->clamplength('BC009CG');
-			if (defined $self->{$attribute}{$option}) {
-				return $self->{$attribute}{$option};
-			
-			# Otherwise, return the default value
-			} else {
-				return $self->{$attribute}{'DEFAULT'};
-			}
 		}
 	}
 	
@@ -438,7 +438,7 @@ sub cleanup_files {
 	return unless $grid;
 	
 	# Get dirs and job info
-	my ($outdir, $tmpdir) = ($grid->outdir, $grid->tmpdir, $grid->errdir);
+	my ($outdir, $tmpdir) = ($grid->outdir, $grid->tmpdir);
 	my ($guid, $job_id, $user) = ($grid->guid, $grid->job_id, $grid->user);
 
 	# Get the generic name for each of the job tasks
@@ -544,6 +544,7 @@ sub run_fuzznuc {
 	unless ($output_file) {
 		my ($secut,$musec) = gettimeofday;
 		my ($guid) = sprintf("%010d%06d%05d", $secut, $musec, $$);
+		$self->guid($guid);
 		$output_file = $self->outdir."/fuzznuc_$guid.csv";
 	}
 	
@@ -751,6 +752,13 @@ sub read_pattern_file {
 					$self->_options($key, $id, $value);
 				}
 			}
+			
+			# We need to do this to solve the problem of integer barcode ids
+			# Set the clamplength and readlength to the default values for this barcode
+			$self->{'clamplength'}{$id} = $self->{'clamplength'}{'DEFAULT'}
+				unless defined $self->{'clamplength'}{$id};
+			$self->{'readlength'}{$id} = $self->{'readlength'}{'DEFAULT'}
+				unless defined $self->{'readlength'}{$id};
 		}
 		
 		# Get the sequence
@@ -1252,14 +1260,21 @@ sub validate_results {
 	
 	opendir (OUTDIR, $outdir) || die "Could not open directory $outdir\n";
 	my @entries = readdir(OUTDIR);
+	
+	my $fuzznuc_file_prefix = ($self->grid) ? join(".", "fuzznuc", $self->grid->user, $self->grid->job_id) : "fuzznuc_" . $self->guid . ".csv";
 	foreach my $fuzznuc_file (@entries) {
-		if ($fuzznuc_file =~ /^fuzznuc/) {
+		if ($fuzznuc_file =~ /^$fuzznuc_file_prefix/) {
 			open (FUZZNUC, "< $outdir/$fuzznuc_file") || die "Could not open file $fuzznuc_file\n";
-			#print "Fuzznuc file $outdir/$fuzznuc_file\n";
+			print "Fuzznuc file $outdir/$fuzznuc_file\n";
 			while (<FUZZNUC>) {
 				chomp;
 				next if $_=~/SeqName/;
-				my ($seq_id, $start, $end, $length, $strand, $barcode, $num_mismatches) = split /\t/, $_;
+				my ($seq_id, $start, $end, $length, $strand, $barcode_header, $num_mismatches) = split /\t/, $_;
+				
+				# Get barcode id, and exclude any other key-value pairs
+				my ($barcode) = split /\s/, $barcode_header;
+				
+				# Split up barcode
 				$seqs{$barcode}{$seq_id}++;
 			}
 			close FUZZNUC;
@@ -1270,7 +1285,9 @@ sub validate_results {
 	
 	# Read in results and validate the assignments
 	my $num_invalid = 0; my $num_valid = 0;
-	foreach my $barcode_dir (@entries) {
+	
+	# TODO: iterate through barcodes here
+	foreach my $barcode_dir (sort keys %{ $self->barcode_table }) {
 		if (-d "$outdir/$barcode_dir") {
 			next if $barcode_dir eq "." || $barcode_dir eq "..";
 			opendir (BARCODE_DIR, "$outdir/$barcode_dir") || die "Could not open barcode directory $outdir/$barcode_dir\n";
@@ -1340,7 +1357,6 @@ Grid::Tools::Barcode::Deconvolver
 				pattern	=> $pattern,
 				infile	=> $fasta,
 				tmpdir	=> $tmpdir,
-				errdir	=> $errdir,
 				outdir	=> $outdir,
 				options 	=> "-pattern \@$pattern -pmismatch 2 -filter -rformat excel -stdout true -complement Yes"
 	});

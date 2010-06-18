@@ -43,11 +43,14 @@ B<--outdir,-o>
 B<--mismatches,-m>
 	OPTIONAL.  Number of mismatches to allow in running fuzznuc searches.
 
-B<--readlength,-l>
+B<--readlength,-r>
 	OPTIONAL.  Minimal acceptable read length after barcode trimming is complete.
 
-B<--clamplength,-l>
+B<--clamplength,-c>
 	OPTIONAL.  The length of the barcode clamp. A/K/A hexamer length.  Default is 6.
+
+B<--keylength>
+        OPTIONAL.  The length of the key sequence.  Default is 4.
 
 B<--key,-k>
 	OPTIONAL.  The Roche/454 key sequence.  This is typically a 4bp sequence (eg. TCAG)
@@ -107,8 +110,9 @@ my $results = GetOptions( \%opts,
 					'errdir|e=s',
 					'outformat=s',
 					'key|k=s',
-					'readlength:i',
-					'clamplength:i',
+					'keylength:i',
+					'readlength|r:i',
+					'clamplength|c:i',
 					'cleanup!',
 					'trim_points_only!',
 					'verbose!',
