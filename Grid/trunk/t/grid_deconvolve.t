@@ -11,6 +11,9 @@ use Test::More;
 my $user=`whoami`; chomp $user;
 $user ||= "deconvolve";
 
+# test using relative paths
+# ./grid_deconvolve.t data/test_GEIVOUP02.sff data/test_barcode_metadata_from_GLK.txt.pat data/test_GEIVOUP02_expected_answer_trim_BC019CG.txt.trim 
+
 # Set inputs files and output directory
 my ($fasta, $pattern, $answers_file, $dir, $key) = @ARGV;
 $fasta ||= "$Bin/data/test_GEIVOUP02.sff";
@@ -55,6 +58,7 @@ my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
 			tmpdir	=> $tmpdir,
 			errdir	=> $errdir,
 			outdir	=> $outdir,
+			clamplength => 6, 		# Test that barcode-specific clamplength in pattern file is used
 			cleanup 	=> 0,
 			verbose	=> 1
 });

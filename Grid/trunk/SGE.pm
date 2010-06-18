@@ -4,6 +4,7 @@ use base qw(Class::Accessor::Fast);
 use Grid::SGE::Status qw/check_grid_status check_jobs_status check_jobs_complete 
 	check_jobs_status_by_user _job_by_line _node_by_line/;
 use Grid::SGE::Control qw/delete_jobs/;
+use Cwd;
 
 # Need to find a better way of generating UIDs
 #use Data::GUID;
@@ -40,7 +41,13 @@ my %OPTIONS = (
 		'outdir'		=> '-o',
 		'errdir'		=> '-e',
 );
-my $DEFAULT_DIR = "/usr/local/scratch";
+
+######################## DEFAULTS  ##########################
+
+my $DEFAULT_DIR 	= "/usr/local/scratch";
+my $CWD 			= cwd(); 					# current working directory
+
+##############################################################
 
 =item new
 	Initialize new objects in order to set default values
@@ -77,15 +84,16 @@ sub init {
 	
 	# Set dirs using user or default options
 	my $USER_DIR = join("/", $DEFAULT_DIR, $self->user);
-	my $tmpdir = ($self->{tmpdir})
-				? $self->tmpdir($self->{tmpdir})
-				: $self->tmpdir("$USER_DIR/tmp");
-	my $errdir = ($self->{errdir})
-				? $self->errdir($self->{errdir})
-				: $self->errdir("$USER_DIR/err");
-	my $outdir = ($self->{outdir})
-				? $self->outdir($self->{outdir})
-				: $self->outdir("$USER_DIR/out");
+
+	# Use the default directories unless specified
+	$self->outdir("$USER_DIR/out") unless $self->outdir;
+	$self->tmpdir("$USER_DIR/tmp") unless $self->tmpdir;
+	$self->errdir("$USER_DIR/err") unless $self->errdir;
+	
+	# Use fully qualified paths
+	$self->outdir($CWD ."/". $self->outdir) if $self->outdir && $self->outdir !~ /^\//;
+	$self->tmpdir($CWD ."/". $self->tmpdir) if $self->tmpdir && $self->tmpdir !~ /^\//;
+	$self->errdir($CWD ."/". $self->errdir) if $self->errdir && $self->errdir !~ /^\//;
 	
 	# Minimum poll frequency of 10 seconds, default 60 seconds
 	$self->poll_delay(60) unless defined $self->poll_delay && $self->poll_delay >= 10;
