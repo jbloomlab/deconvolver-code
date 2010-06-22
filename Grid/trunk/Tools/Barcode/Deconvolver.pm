@@ -1106,7 +1106,7 @@ sub write_barcode_fasta {
 		unless ($self->trim_points_only) {
 			print STDERR "Writing barcode results $barcode_fasta_file\n";
 			if ($outformat eq "fastq") {
-				$seqio_fastq = new Bio::SeqIO( -format => "fastq", -file => ">$barcode_fasta_file" );
+				$seqio_fastq = new Bio::SeqIO( -format => "fastq", -file => ">$barcodedir/$barcode_id.fastq" );
 			} else {
 				open(FH_BARCODE_FILE, "> $barcode_fasta_file") || die "Could not open results file $barcode_fasta_file for writing.\n";
 			}
