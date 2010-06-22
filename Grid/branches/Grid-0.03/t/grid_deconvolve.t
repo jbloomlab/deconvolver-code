@@ -16,8 +16,9 @@ $user ||= "deconvolve";
 
 # Set inputs files and output directory
 my ($fasta, $pattern, $answers_file, $dir, $key) = @ARGV;
+#$fasta ||= "$Bin/data/test_GEIVOUP02.untrimmed.fasta";
 $fasta ||= "$Bin/data/test_GEIVOUP02.sff";
-$pattern ||= "$Bin/data/test_barcode_metadata_from_GLK.txt.pat";
+$pattern ||= "$Bin/data/barcodes.pat";
 $answers_file = "$Bin/data/test_GEIVOUP02_expected_answer_trim_BC019CG.txt.trim";
 if (!$dir) {
 	$dir = "/usr/local/scratch/$user";

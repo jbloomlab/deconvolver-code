@@ -836,7 +836,7 @@ sub make_fasta_table {
 	FileIO::FastaUtils->parse_fasta_by_file($self->fasta_file, $self->fasta_table);
 	
 	# Read fasta quality values
-	unless ($self->trim_points_only) {
+	unless ($self->trim_points_only || !(-f $self->quals_file)) {
 		print STDERR "Reading quals file $$self{quals_file}\n" if $self->verbose;
 		FileIO::FastaUtils->parse_quals_by_file($self->quals_file, $self->fasta_table);
 	}
@@ -966,15 +966,11 @@ sub make_assignment_table {
 	die "Expecting a hit iterator, but got $Hit_Iterator instead.\n"
 		unless $Hit_Iterator && ref($Hit_Iterator) eq "CODE";
 	
-	# Create our hash of sequences with multiple barcodes
-	my $multibarcode_table;
-	
 	# Iterate through our hits, which we assume are sorted by sequence
 	my ($seq_id, $prev_id, @Hits, $num_hits, $num_seqs_with_hits);
 	while (my $Hit = $Hit_Iterator->()) {
 		
 		$seq_id = $Hit->seq_id;
-		
 		if ($prev_id) {
 			
 			# Build a list of hits for this sequence
@@ -1009,7 +1005,7 @@ sub make_assignment_table {
 	
 	# Report count of multicoded sequences
 	if ($self->verbose) {
-		my $num_multibarcode_seqs = scalar keys %$multibarcode_table;
+		my $num_multibarcode_seqs = scalar keys %{ $self->multibarcode_table };
 		print STDERR "Sequences with multi barcode hits: $num_multibarcode_seqs\n";
 	}
 	
@@ -1017,7 +1013,7 @@ sub make_assignment_table {
 	$self->num_seqs_with_hits($num_seqs_with_hits);
 	
 	# Set our multibarcode table
-	$self->multibarcode_table($multibarcode_table);
+	$self->multibarcode_table();
 	
 	# Set and return our assignments table
 	return $self->assignments_table;
@@ -1174,14 +1170,13 @@ sub write_barcode_fasta {
 			
 			# Update our fasta record with the "clear range" trimmed sequence
 			$F->seq(substr($seq, $seq_start, $seq_end - $seq_start));
+			die "Bug: No sequence", join("\n", $seq_id, $seq, "trimmed_seq clear range $clear_start..$clear_end seq range $seq_start..$seq_end ", $F->seq, $F->qual), "\n" if !$F->seq;
 			
 			# Update our quality values with the "clear range" trimmed values
-			my @quality_arr = split / /, $F->qual; 
-			$F->qual(join(" ", @quality_arr[$qv_start..$qv_end - 1]));
-			
-			# Verify that we have sequence and quality values
-			die "Bug: No sequence", join("\n", $seq_id, $seq, "trimmed_seq clear range $clear_start..$clear_end seq range $seq_start..$seq_end ", $F->seq, $F->qual), "\n" if !$F->seq;
-			die "Bug: No qualities", join(" ", $seq_id, "trimmed_qual clear range $clear_start..$clear_end qv range $qv_start..$qv_end ", "length=", scalar @quality_arr, $F->qual), "\n" if !$F->qual;
+			if (defined $F->qual) {
+				my @quality_arr = split / /, $F->qual; 
+				$F->qual(join(" ", @quality_arr[$qv_start..$qv_end - 1]));
+			}
 			
 			# Report the locations of our barcode hits
 			my $locs_string;
@@ -1206,7 +1201,7 @@ sub write_barcode_fasta {
 			} else {
 				my $desc = join(" ", "barcode=$barcode_id", "length=$clear_seqlen", $F->desc); # "fuzznuc_barcode_hits=$locs_string" 
 				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_seq;
-				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_qual;
+				print FH_BARCODE_FILE join(" ", ">".$F->id, $desc), "\n", $F->fasta_qual if defined $F->qual;
 			}
 		}
 		close FH_BARCODE_FILE;
