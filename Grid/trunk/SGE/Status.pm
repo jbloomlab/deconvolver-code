@@ -23,7 +23,7 @@ use Grid::SGE::Job;
 use IPC::Open3;
 
 use vars qw(@ISA @EXPORT_OK);
-@ISA = qw(Grid::SGE Exporter);
+@ISA = qw( Exporter );
 @EXPORT_OK = qw(
 	check_grid_status 
 	check_jobs_status 
