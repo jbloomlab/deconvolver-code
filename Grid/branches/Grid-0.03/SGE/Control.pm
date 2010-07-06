@@ -14,7 +14,7 @@ use strict;
 use Exporter;
 
 use vars qw(@ISA @EXPORT_OK);
-@ISA = qw(Grid::SGE Exporter);
+@ISA = qw( Exporter );
 @EXPORT_OK = qw(delete_jobs);
 our $VERSION = '0.01';
 

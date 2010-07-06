@@ -1,6 +1,5 @@
 #!/usr/local/bin/perl -w
 use strict;
-use Pod::Usage;
 use FindBin qw($Bin);
 use lib "$Bin/../../";
 use Grid::SGE;
