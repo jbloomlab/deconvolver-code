@@ -22,7 +22,9 @@ Grid::Tools::Fuzznuc->mk_accessors(qw(
 ################################################################################\
 
 my $CWD 			= cwd(); 	
-my $EXEC 			= 'fuzznuc';	# path of fuzznuc executable
+# tbs - 2010/07/20 - fully specified fuzznuc location
+# my $EXEC 		= 'fuzznuc';	# path of fuzznuc executable
+my $EXEC 			= '/usr/local/packages/EMBOSS-5.0.0/bin/fuzznuc';	# path of fuzznuc executable
 my $NUM_SEQS 		= 100000; 	# number of sequences per fasta file for split
 
 # specify any default options
@@ -270,13 +272,15 @@ sub command {
 	my $shellscript = "$tmpdir/grid-fuzznuc.$guid.sh";
 	sysopen(SCRIPT_FH, $shellscript, O_RDWR|O_CREAT|O_TRUNC, 0755);
 	
+	# tbs - 2010/07/20 - changed from /tmp to /usr/local/scratch, and echo HOSTNAME
 	print SCRIPT_FH join("\n", 
 		"#!/bin/bash",
 		"\n# input and output directories",
 		"TMPDIR=\$1",
 		"OUTPUT_DIR=\$2",
+		"echo \$HOSTNAME",
 		"\n# temp directory (on the local grid node)",
-		"TMP=\"/tmp/fuzznuc.\$USER.\$JOB_ID.\$SGE_TASK_ID\"",
+		"TMP=\"/usr/local/scratch/fuzznuc.\$USER.\$JOB_ID.\$SGE_TASK_ID\"",
 		"\n# get an array of fasta files",
 		"files=( `ls \$TMPDIR/split.$guid.*.fasta` )",
 		"\n# get the file to work on for this job",
