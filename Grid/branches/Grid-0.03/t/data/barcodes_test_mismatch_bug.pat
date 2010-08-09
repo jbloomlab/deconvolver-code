@@ -1,0 +1,2 @@
+>BC_1
+GTAGTACTCG
