@@ -18,6 +18,7 @@ use IO::Handle;
 my $TRIM_READS 	= 1; 					# trim the barcodes off of the read sequences
 my $TRIM_POINTS_ONLY = 0;					# output only the trim points
 my $MIN_READ_LENGTH = 50; 					# Minimum acceptable read length after barcode trimming
+my $NUM_MISMATCHES	= 2;						# Default number of mismatches
 my $CLAMP_LENGTH 	= 6; 					# Length of barcode clamp to trim off
 my $KEY_LENGTH 	= 4; 					# Length of 454 keys, used for defining the trim points file.
 my $CWD 			= cwd(); 					# current working directory
@@ -25,6 +26,7 @@ my $TMP_DIR 		= "$CWD/tmp"; 				# temp directory
 my $OUT_DIR 		= "$CWD/out";				# output directory
 my $MULTIBARCODE_FILE = "report_multibarcode.log";
 my $NUM_SEQS_PER_SEARCH = 50000; 				# Number of sequences per fuzznuc search (50k by default)
+my $SFFFILE_MODE = 0;						# Run deconvolution in sfffile mode (default: false)
 my $CLEANUP 		= 1;						# Boolean value to determine whether we should
 										# delete temp files on completion.  True by default.
 
@@ -60,6 +62,7 @@ Grid::Tools::Barcode::Deconvolver->mk_accessors(qw(
 	num_barcodes
 	num_seqs_with_hits
 	num_seqs_validated
+	sfffile_mode
 	cleanup
 	logfilehandle
 ));
@@ -87,6 +90,27 @@ sub init {
 	
 	# Set defaults for any unspecified, optional parameters
 	$self->set_defaults();
+	$self->validate_parameters();
+	
+	# Confirm an input sff file is provided when running in sfffile mode
+	# die "An input sff file is required to run in sfffile mode.\n"
+	#		if $self->sfffile_mode && $self->informat ne "sff";
+	
+	# Validate the key sequence when provided an sff file
+	if ($self->key) {
+		if ($self->informat eq "sff") {
+			my $key_sequence = $self->get_key_sequence_from_sffinfo();
+			die "Error: Input key sequence (", $self->key, ") does not match key sequence ($key_sequence) determined by sffinfo.\n"
+				if $self->key ne $key_sequence;
+		}
+		
+	# Set the key automatically using sffinfo when running in sfffile mode
+	# and no key sequence is provided
+	} else {
+		if ($self->sfffile_mode) {
+			$self->key($self->get_key_sequence_from_sffinfo);
+		}
+	}
 	
 	# Make output directories
 	mkdir $self->outdir unless -e $self->outdir;
@@ -96,6 +120,19 @@ sub init {
 	$self->read_pattern_file();
 	
 	return $self;
+}
+
+=item get_key_sequence_from_sffinfo
+ 
+ Uses sffinfo to get the key sequence from an sff file
+ 
+=cut
+sub get_key_sequence_from_sffinfo {
+	my $self = shift;
+	my $infile = $self->infile;
+	my $key = `sffinfo $infile | head -n 100 | grep 'Key Sequence:' | cut -d ':' -f 2`;
+	$key =~ s/[\s]//g;
+	return $key;
 }
 
 =item set_defaults
@@ -114,6 +151,13 @@ sub set_defaults {
 	delete $self->{readlength};
 	$self->clamplength($clamplength);
 	$self->readlength($readlength);
+	
+	# Specify the number of mismatches
+	my $mismatches = (defined $self->{mismatches}) ? $self->{mismatches} : $NUM_MISMATCHES;
+	$self->mismatches($mismatches);
+	
+	# Run in sfffile mode
+	$self->sfffile_mode($SFFFILE_MODE) unless defined $self->sfffile_mode;
 	
 	# Use the default directories unless specified
 	$self->outdir($OUT_DIR) unless $self->outdir;
@@ -136,8 +180,6 @@ sub set_defaults {
 	$self->cleanup($CLEANUP) unless defined $self->cleanup;
 	my $is_verbose = (defined $self->verbose && $self->verbose) ? 1 : 0;
 	$self->verbose($is_verbose);
-	# Read in our pattern file to set barcode-specific clamplength and readlength 
-	# $self->read_pattern_file();
 	
 	# Set key sequence (use uppercase as convention)
 	if (defined $self->key) {
@@ -359,6 +401,11 @@ sub set_fuzznuc {
 	# Requires csv output
 	$self->options('rformat', 'excel');
 	$self->options('filter', 'true');
+	
+	# sfffile does not search the complementary direction
+	if ($self->sfffile_mode) {
+		$self->options('complement', 'No');
+	}
 	
 	# Create our Grid::Tools::Fuzznuc object 
 	# (uses the directory structure defined during set_defaults)
@@ -690,7 +737,6 @@ sub revcomp {
 	return $revcomp_seq;
 }
 
-
 =head2 read_pattern_file()
 
 	Reads in a barcode file, as a generic fasta file
@@ -710,16 +756,12 @@ sub read_pattern_file {
 	open(IN, "< $pattern_file") || die "Could not open fasta file $pattern_file for reading.\n";
 	
 	# We output a temporary pattern file with prepended key sequences if provided (in tmpdir)
-	if ($self->key) {
-		my ($base_file) = fileparse($pattern_file, qr/\.[^.]*/);
-		my $tmp_pattern_file = $self->pattern($self->tmpdir."/$base_file.pat");
-		open(OUT, "> $tmp_pattern_file") || die "Could not open fasta file $tmp_pattern_file for writing.\n";
-		print STDERR "Writing temp barcode file with prepended key sequence ($$self{key}) to $tmp_pattern_file\n"
-			if $self->verbose;
-	
-	# Otherwise, we just read in the pattern file 
-	} else {
-		print STDERR "Reading barcode file $pattern_file\n" if $self->verbose;
+	my ($base_file) = fileparse($pattern_file, qr/\.[^.]*/);
+	my $tmp_pattern_file = $self->pattern($self->tmpdir."/$base_file.pat");
+	open(OUT, "> $tmp_pattern_file") || die "Could not open fasta file $tmp_pattern_file for writing.\n";
+	if ($self->verbose) {
+		print STDERR "Reading barcode file $pattern_file\n";
+		print STDERR "Writing temp barcode file to $tmp_pattern_file\n";
 	}
 	
 	# delimit sequences by header line
@@ -731,12 +773,6 @@ sub read_pattern_file {
 		
 		# strip initial > char
 		$header = substr($header,1) if $header=~/^>/; 
-		
-		# Output the barcode sequence prepended with the key sequence
-		if ($self->key) {
-			$sequence_lines[0] = $self->key . $sequence_lines[0];
-			print OUT join("\n", ">$header", @sequence_lines), "\n";
-		}
 		
 		# Separate the identifier from the rest of the header line
 		my ($id, $desc);
@@ -760,6 +796,14 @@ sub read_pattern_file {
 			$self->{'readlength'}{$id} = $self->{'readlength'}{'DEFAULT'}
 				unless defined $self->{'readlength'}{$id};
 		}
+		
+		# Prepend the key to the barcode sequence
+		$sequence_lines[0] = $self->key . $sequence_lines[0] if $self->key;
+		
+		# Output the header information to our temporary pattern file
+		# Always include the mismatch parameter in the barcode file
+		$header .= " <mismatch=".$self->mismatches.">" unless $header =~ /mismatch\=\d+/;
+		print OUT join("\n", ">$header", @sequence_lines), "\n";
 		
 		# Get the sequence
 		my $seq = join("", @sequence_lines);
@@ -1260,7 +1304,6 @@ sub validate_results {
 	foreach my $fuzznuc_file (@entries) {
 		if ($fuzznuc_file =~ /^$fuzznuc_file_prefix/) {
 			open (FUZZNUC, "< $outdir/$fuzznuc_file") || die "Could not open file $fuzznuc_file\n";
-			print "Fuzznuc file $outdir/$fuzznuc_file\n";
 			while (<FUZZNUC>) {
 				chomp;
 				next if $_=~/SeqName/;
