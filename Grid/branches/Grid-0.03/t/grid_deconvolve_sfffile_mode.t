@@ -11,7 +11,7 @@ use Test::More;
 # 2) Set "-complement No" in the Fuzznuc options
 
 # Confirm that we get this number of expected fuzznuc hits
-my $NUM_HITS_EXPECTED = 21; # 1088 on FTM5NAR02.fasta; 
+my $NUM_HITS_EXPECTED = 5; # 1088 on FTM5NAR02.fasta; 
 
 # Get the user
 my $user=`whoami`; chomp $user;
