@@ -53,6 +53,7 @@ my $grid = new Grid::SGE({
 # Test (1a): Using options stringified
 my $Deconvolver = new Grid::Tools::Barcode::Deconvolver({
 			mismatches => 1,
+			key		=> "TCAG",
 			sfffile_mode => 1,
 			grid		=> $grid,
 			pattern	=> $pattern,
