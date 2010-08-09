@@ -95,6 +95,12 @@ B<--num_seqs>
 	OPTIONAL.  Integer parameter to specify the number of sequences per fasta 
 			 file for splitting and distributing the Fuzznuc searches.
 
+B<--sfffile_mode>
+	OPTIONAL.  Boolean parameter to optionally run in sfffile mode.
+			 This mode is handled by 
+			 (1) Set "-complement No" in the options string for Fuzznuc searches, and
+			 (2) Sets the key sequence by using sffinfo on the input sff file.
+
 B<--cleanup>
 	OPTIONAL.  Boolean parameter to determine if the temporary files, such as
 			 the output of fuzznuc searches, should be removed once the 
