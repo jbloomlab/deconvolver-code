@@ -108,7 +108,11 @@ sub init {
 	# and no key sequence is provided
 	} else {
 		if ($self->sfffile_mode) {
-			$self->key($self->get_key_sequence_from_sffinfo);
+			if ($self->informat eq "sff") {
+				$self->key($self->get_key_sequence_from_sffinfo);
+			} else {
+				die "Error: A key sequence is required to run in sfffile mode for a ".$self->informat." input file.\n";
+			}
 		}
 	}
 	
