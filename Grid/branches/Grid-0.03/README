@@ -1,9 +1,32 @@
 Grid Deconvolution README
 
-Summary of the JCVI DNA Barcode Deconvolution software
+# ------------------------------------------------------------------------------
+# Overview
+# ------------------------------------------------------------------------------
+
+This is a software library to run the JCVI barcode deconvolution pipeline using 
+Sun Grid Engine, or optionally without the use of a grid.
+
+This software deconvolves a FASTA, FASTQ or SFF file based on the barcode 
+sequences, as determined by running fuzznuc to find the best hits of read to 
+barcode sequences. The results are a report of trim points, and a list of 
+barcode fasta files with each entry representing a read sequence that has its 
+unambiguous best hit to the bar code.  The bar code sequences are trimmed by 
+default, unless otherwise specified.
+
+This software is open-source and available free of charge subject to the GNU 
+General Public License, version 2.
+
+# ------------------------------------------------------------------------------
+# Files
+# ------------------------------------------------------------------------------
 
 All of the files are available on SourceForge at
 https://sourceforge.net/projects/deconvolver/files/
+
+# ------------------------------------------------------------------------------
+# Getting Started
+# ------------------------------------------------------------------------------
 
 # 1. Download the libraries
 	a. 	Grid
@@ -16,9 +39,12 @@ https://sourceforge.net/projects/deconvolver/files/
      See Grid/bin/grid-deconvolve.pl --help for more information.
 
 # ------------------------------------------------------------------------------
-# Standard mode (--not-sfffile_mode)
+# Standard mode for custom DNA barcode protocols
 # ------------------------------------------------------------------------------
 
+The standard mode for grid deconvolution will search for the barcode pattern in
+both strands on the entire sequence of the input fragment data sets at an 
+optionally provided number of allowable mismatches to the pattern.
 
 # ------------------------------------------------------------------------------
 # sfffile_mode
@@ -53,4 +79,13 @@ entire string for an allowable match.
 There is a test case included in the repository to validate sfffile_mode
 Grid/t/grid_deconvolve_sfffile_mode.t
 
+
+# ------------------------------------------------------------------------------
+# Author
+# ------------------------------------------------------------------------------
+
+Nelson Axelrod
+J. Craig Venter Institute
+http://www.jcvi.org
+naxelrod@jcvi.org
 
