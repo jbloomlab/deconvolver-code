@@ -285,6 +285,7 @@ sub print_runtime_settings {
 	my $self = shift;
 	my $key = (defined $self->key) ? $self->key : " ";
 	my $mismatches = (defined $self->mismatches) ? $self->mismatches : " ";
+	my $sfffile_mode = ($self->sfffile_mode) ? "true" : "false";
 	return join("\n",
 			"# ============================================================",
 			"# Program: $0",
@@ -299,6 +300,7 @@ sub print_runtime_settings {
 			"#\t-keylength ".$self->keylength,
 			"#\t-key $key",
 			"#\t-trim_points_only $$self{trim_points_only}",
+			"#\t-sfffile_mode $sfffile_mode",
 			"#\t-tmpdir $$self{tmpdir}",
 			"#\t-outdir $$self{outdir}",
 			"#\t-outformat $$self{outformat}",
