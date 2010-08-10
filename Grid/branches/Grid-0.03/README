@@ -1,0 +1,56 @@
+Grid Deconvolution README
+
+Summary of the JCVI DNA Barcode Deconvolution software
+
+All of the files are available on SourceForge at
+https://sourceforge.net/projects/deconvolver/files/
+
+# 1. Download the libraries
+	a. 	Grid
+	b.   FileIO
+
+# 2. Run the test script and verify test complete successfully
+     Grid/t/grid_deconvolve.t
+     
+# 3. Run deconvolution against your sequence and barcode datasets
+     See Grid/bin/grid-deconvolve.pl --help for more information.
+
+# ------------------------------------------------------------------------------
+# Standard mode (--not-sfffile_mode)
+# ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# sfffile_mode
+# ------------------------------------------------------------------------------
+
+Grid/bin/grid-deconvolve.pl --sfffile_mode <OPTIONS>
+
+The release of the deconvolution code includes an "sfffile_mode" option that 
+enables the deconvolution process to work similarly to the sfffile deconvolver 
+for any input dataset (.sff, .fasta, .fastq).  This option strictly searches for 
+the key sequence adjacent to the barcode in the 5’-to-3’ direction. 
+
+This option was added to provide a single software solution to handle both 
+standard Roche MID barcoded data, and to handle custom barcode design protocols.  
+
+Running in sfffile_mode does the following
+
+1)	Automatically sets and/or validates the key sequence
+	a.	For .sff files, it sets the key sequence using sffinfo, or validates a 
+     user-provided key sequence.
+     b.	For non-sff files, it requires that the user provide the key sequence.
+    
+2)	Searches for barcode pattern only on positive strand on input sequence files.
+
+Note that there may be slight differences between the results of running sfffile 
+versus grid-deconvolve.pl in sfffile_mode.  The key differences are the sfffile 
+tolerates gaps and does not count them against the allowable mismatch threshold, 
+and sfffile looks for a sequence alignment only at the very beginning of the 
+read sequence.  grid-deconvolve.pl uses fuzznuc from Emboss tools to search the 
+entire string for an allowable match. 
+
+There is a test case included in the repository to validate sfffile_mode
+Grid/t/grid_deconvolve_sfffile_mode.t
+
+
